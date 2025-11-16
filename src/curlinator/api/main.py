@@ -26,6 +26,7 @@ from curlinator.api.middleware import (
     setup_metrics
 )
 from curlinator.api.routes import health, crawl, chat, auth, collections, metrics
+from curlinator.api.utils.llm_validation import validate_llm_config
 from curlinator.config import get_settings
 from curlinator.config.settings import validate_environment
 
@@ -73,19 +74,54 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("ℹ️  Sentry DSN not configured - error tracking disabled")
 
-    # Configure LLM (if API key is available)
-    if settings.openai_api_key:
-        llm_kwargs = {
-            "model": settings.default_model_openai,
-            "api_key": settings.openai_api_key,
-        }
-        if settings.openai_api_base:
-            llm_kwargs["api_base"] = settings.openai_api_base
+    # Configure LLM (if VALID API key is available)
+    # Check all providers based on default_llm_provider setting
+    llm_configured = False
 
-        Settings.llm = OpenAI(**llm_kwargs)
-        logger.info(f"✅ Configured LLM: {settings.default_model_openai}")
-    else:
-        logger.warning("⚠️  No LLM API key found in environment")
+    if settings.default_llm_provider == "openai" and validate_llm_config("openai", settings.openai_api_key):
+        try:
+            llm_kwargs = {
+                "model": settings.default_model_openai,
+                "api_key": settings.openai_api_key,
+            }
+            if settings.openai_api_base:
+                llm_kwargs["api_base"] = settings.openai_api_base
+
+            Settings.llm = OpenAI(**llm_kwargs)
+            llm_configured = True
+            logger.info(f"✅ Configured OpenAI LLM: {settings.default_model_openai}")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize OpenAI LLM: {e}")
+
+    elif settings.default_llm_provider == "anthropic" and validate_llm_config("anthropic", settings.anthropic_api_key):
+        try:
+            from llama_index.llms.anthropic import Anthropic
+            Settings.llm = Anthropic(
+                model=settings.default_model_anthropic,
+                api_key=settings.anthropic_api_key
+            )
+            llm_configured = True
+            logger.info(f"✅ Configured Anthropic LLM: {settings.default_model_anthropic}")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Anthropic LLM: {e}")
+
+    elif settings.default_llm_provider == "gemini" and validate_llm_config("gemini", settings.gemini_api_key):
+        try:
+            from llama_index.llms.gemini import Gemini
+            Settings.llm = Gemini(
+                model=settings.default_model_gemini,
+                api_key=settings.gemini_api_key
+            )
+            llm_configured = True
+            logger.info(f"✅ Configured Gemini LLM: {settings.default_model_gemini}")
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize Gemini LLM: {e}")
+
+    if not llm_configured:
+        logger.warning(
+            f"⚠️  No valid {settings.default_llm_provider.upper()} API key found - LLM not initialized. "
+            "Some features may be limited."
+        )
 
     # NOTE: Embedding models are configured per-request in the crawl endpoint
     # to support multiple providers and avoid global state conflicts

@@ -15,53 +15,9 @@ from llama_index.llms.anthropic import Anthropic
 from llama_index.llms.gemini import Gemini
 
 from curlinator.config import get_settings
+from curlinator.api.utils.llm_validation import is_valid_api_key
 
 logger = logging.getLogger(__name__)
-
-
-def _is_valid_api_key(api_key: str, provider: str) -> bool:
-    """
-    Check if an API key is valid (not a test/placeholder key).
-
-    Args:
-        api_key: The API key to validate
-        provider: The provider name (openai, anthropic, gemini)
-
-    Returns:
-        True if the key appears to be valid, False otherwise
-    """
-    if not api_key:
-        return False
-
-    # Common test/placeholder patterns
-    test_patterns = [
-        'test-key',
-        'not-real',
-        'placeholder',
-        'dummy',
-        'fake',
-        'mock',
-        'example',
-    ]
-
-    # Check if key contains any test patterns
-    api_key_lower = api_key.lower()
-    if any(pattern in api_key_lower for pattern in test_patterns):
-        logger.info(f"Detected test/placeholder API key for {provider}, skipping LLM initialization")
-        return False
-
-    # Provider-specific validation
-    if provider == "openai":
-        # OpenAI keys start with 'sk-' and are at least 20 chars
-        return api_key.startswith('sk-') and len(api_key) > 20
-    elif provider == "anthropic":
-        # Anthropic keys start with 'sk-ant-' and are at least 20 chars
-        return api_key.startswith('sk-ant-') and len(api_key) > 20
-    elif provider == "gemini":
-        # Gemini keys are typically 39 characters long
-        return len(api_key) >= 30
-
-    return False
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -80,7 +36,7 @@ def setup_test_environment():
     settings = get_settings()
     llm_configured = False
 
-    if settings.default_llm_provider == "openai" and _is_valid_api_key(settings.openai_api_key, "openai"):
+    if settings.default_llm_provider == "openai" and is_valid_api_key(settings.openai_api_key, "openai"):
         try:
             Settings.llm = OpenAI(
                 model=settings.default_model_openai,
@@ -91,7 +47,7 @@ def setup_test_environment():
             logger.info(f"✅ Configured OpenAI LLM: {settings.default_model_openai}")
         except Exception as e:
             logger.warning(f"Failed to initialize OpenAI LLM: {e}")
-    elif settings.default_llm_provider == "anthropic" and _is_valid_api_key(settings.anthropic_api_key, "anthropic"):
+    elif settings.default_llm_provider == "anthropic" and is_valid_api_key(settings.anthropic_api_key, "anthropic"):
         try:
             Settings.llm = Anthropic(
                 model=settings.default_model_anthropic,
@@ -101,7 +57,7 @@ def setup_test_environment():
             logger.info(f"✅ Configured Anthropic LLM: {settings.default_model_anthropic}")
         except Exception as e:
             logger.warning(f"Failed to initialize Anthropic LLM: {e}")
-    elif settings.default_llm_provider == "gemini" and _is_valid_api_key(settings.gemini_api_key, "gemini"):
+    elif settings.default_llm_provider == "gemini" and is_valid_api_key(settings.gemini_api_key, "gemini"):
         try:
             Settings.llm = Gemini(
                 model=settings.default_model_gemini,
@@ -132,9 +88,9 @@ def check_api_key():
 
     settings = get_settings()
     has_key = bool(
-        _is_valid_api_key(settings.openai_api_key, "openai") or
-        _is_valid_api_key(settings.anthropic_api_key, "anthropic") or
-        _is_valid_api_key(settings.gemini_api_key, "gemini")
+        is_valid_api_key(settings.openai_api_key, "openai") or
+        is_valid_api_key(settings.anthropic_api_key, "anthropic") or
+        is_valid_api_key(settings.gemini_api_key, "gemini")
     )
 
     return has_key

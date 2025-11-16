@@ -27,38 +27,16 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 from curlinator.agents import ChatAgent
 from curlinator.config import get_settings
-
-
-# Helper function to check if API key is available
-def _is_valid_api_key(api_key: str, provider: str) -> bool:
-    """Check if an API key is valid (not a test/placeholder key)"""
-    if not api_key:
-        return False
-
-    # Common test/placeholder patterns
-    test_patterns = ['test-key', 'not-real', 'placeholder', 'dummy', 'fake', 'mock', 'example']
-    api_key_lower = api_key.lower()
-    if any(pattern in api_key_lower for pattern in test_patterns):
-        return False
-
-    # Provider-specific validation
-    if provider == "openai":
-        return api_key.startswith('sk-') and len(api_key) > 20
-    elif provider == "anthropic":
-        return api_key.startswith('sk-ant-') and len(api_key) > 20
-    elif provider == "gemini":
-        return len(api_key) >= 30
-
-    return False
+from curlinator.api.utils.llm_validation import is_valid_api_key
 
 
 def _has_llm_api_key():
     """Check if any VALID LLM API key is available"""
     settings = get_settings()
     return bool(
-        _is_valid_api_key(settings.openai_api_key, "openai") or
-        _is_valid_api_key(settings.anthropic_api_key, "anthropic") or
-        _is_valid_api_key(settings.gemini_api_key, "gemini")
+        is_valid_api_key(settings.openai_api_key, "openai") or
+        is_valid_api_key(settings.anthropic_api_key, "anthropic") or
+        is_valid_api_key(settings.gemini_api_key, "gemini")
     )
 
 
