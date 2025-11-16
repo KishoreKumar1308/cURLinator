@@ -30,20 +30,42 @@ from curlinator.config import get_settings
 
 
 # Helper function to check if API key is available
+def _is_valid_api_key(api_key: str, provider: str) -> bool:
+    """Check if an API key is valid (not a test/placeholder key)"""
+    if not api_key:
+        return False
+
+    # Common test/placeholder patterns
+    test_patterns = ['test-key', 'not-real', 'placeholder', 'dummy', 'fake', 'mock', 'example']
+    api_key_lower = api_key.lower()
+    if any(pattern in api_key_lower for pattern in test_patterns):
+        return False
+
+    # Provider-specific validation
+    if provider == "openai":
+        return api_key.startswith('sk-') and len(api_key) > 20
+    elif provider == "anthropic":
+        return api_key.startswith('sk-ant-') and len(api_key) > 20
+    elif provider == "gemini":
+        return len(api_key) >= 30
+
+    return False
+
+
 def _has_llm_api_key():
-    """Check if any LLM API key is available"""
+    """Check if any VALID LLM API key is available"""
     settings = get_settings()
     return bool(
-        settings.openai_api_key or
-        settings.anthropic_api_key or
-        settings.gemini_api_key
+        _is_valid_api_key(settings.openai_api_key, "openai") or
+        _is_valid_api_key(settings.anthropic_api_key, "anthropic") or
+        _is_valid_api_key(settings.gemini_api_key, "gemini")
     )
 
 
 # Skip marker for tests that require LLM API key
 requires_llm_api_key = pytest.mark.skipif(
     not _has_llm_api_key(),
-    reason="No LLM API key found (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY)"
+    reason="No valid LLM API key found (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY)"
 )
 
 

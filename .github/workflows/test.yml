@@ -99,6 +99,10 @@ jobs:
           DATABASE_MAX_RETRIES: "3"
           JWT_SECRET: test-secret-key-for-ci-only-not-for-production
           JWT_EXPIRATION_MINUTES: "10080"
+          # LLM Configuration
+          # Note: Placeholder keys below will be detected as invalid by test infrastructure
+          # Tests requiring real LLM API calls will be skipped automatically
+          # To enable LLM tests, add real API keys to GitHub Secrets
           LLM_PROVIDER: ${{ secrets.LLM_PROVIDER || 'gemini' }}
           LLM_MODEL: ${{ secrets.LLM_MODEL || 'gemini-1.5-flash' }}
           LLM_TEMPERATURE: "0.1"
