@@ -276,9 +276,19 @@ Now, answer the user's question using the provided API documentation."""
         The ChatSummaryMemoryBuffer automatically summarizes old messages when
         the token limit is reached, preserving important context instead of
         simply truncating the conversation history.
+
+        Raises:
+            ValueError: If index is not initialized or LLM is not available
         """
         if not self.index:
             raise ValueError("Index not initialized. Call _build_index() or _load_index() first.")
+
+        if not self.llm:
+            raise ValueError(
+                "LLM not initialized. Cannot create chat engine without a valid LLM. "
+                "Please set a valid API key (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY) "
+                "with a real API key (not a test placeholder)."
+            )
 
         try:
             # 1. Create vector retriever

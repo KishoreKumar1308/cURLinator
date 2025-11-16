@@ -7,8 +7,45 @@ Tests that metrics are properly collected and exposed via the /metrics endpoint.
 import pytest
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from curlinator.api.main import app
+from curlinator.api.database import get_db, Base
+
+
+# Test database setup
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test_metrics.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def override_get_db():
+    """Override database dependency for testing."""
+    try:
+        db = TestingSessionLocal()
+        yield db
+    finally:
+        db.close()
+
+
+@pytest.fixture(scope="function", autouse=True)
+def setup_database():
+    """Create and drop test database for each test, and override the database dependency."""
+    # Override the database dependency for this test
+    app.dependency_overrides[get_db] = override_get_db
+
+    # Create tables
+    Base.metadata.create_all(bind=engine)
+
+    yield
+
+    # Drop tables
+    Base.metadata.drop_all(bind=engine)
+
+    # Clean up the override
+    if get_db in app.dependency_overrides:
+        del app.dependency_overrides[get_db]
 
 
 @pytest.fixture

@@ -184,6 +184,31 @@ async def chat(
                 verbose=True,
             )
             log_adapter.info(f"Successfully loaded ChatAgent for collection: {request.collection_name}")
+        except ValueError as e:
+            # Check if it's an LLM initialization error
+            error_msg = str(e)
+            if "LLM not initialized" in error_msg or "API key" in error_msg:
+                log_adapter.error(f"LLM not available: {error_msg}")
+                raise HTTPException(
+                    status_code=503,
+                    detail={
+                        "error": "LLM service unavailable",
+                        "message": "The chat service requires a valid LLM API key to function. "
+                                   "Please contact the administrator to configure API keys.",
+                        "suggestion": "Set a valid OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY environment variable"
+                    }
+                )
+            else:
+                # Other ValueError - treat as collection not found
+                log_adapter.error(f"Failed to load collection from vector store: {error_msg}", exc_info=True)
+                raise HTTPException(
+                    status_code=404,
+                    detail={
+                        "error": "Collection not found in vector store",
+                        "message": f"Collection '{request.collection_name}' exists in database but not in vector store",
+                        "suggestion": "The collection may be corrupted. Try re-crawling the documentation."
+                    }
+                )
         except Exception as e:
             log_adapter.error(f"Failed to load collection from vector store: {str(e)}", exc_info=True)
             raise HTTPException(
