@@ -3,10 +3,10 @@ name: Test Suite
 on:
   push:
     branches:
-    - '**' # Run on all branches
+      - "**" # Run on all branches
   pull_request:
     branches:
-    - main # Run on PRs to main
+      - main # Run on PRs to main
 
 jobs:
   test:
@@ -24,134 +24,158 @@ jobs:
         options: >-
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         ports:
-        - 5432:5432
+          - 5432:5432
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v3
-      with:
-        version: "latest"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
 
-    - name: Install dependencies
-      run: |
-        uv pip install --system -e ".[dev,server]"
+      - name: Install dependencies
+        run: |
+          uv pip install --system -e ".[dev,server]"
 
-    - name: Set up environment variables
-      run: |
-        cat > .env << EOF
-        # Database (using PostgreSQL service container)
-        DATABASE_URL=postgresql://curlinator_test:test_password@localhost:5432/curlinator_test
-        DATABASE_MAX_RETRIES=3
+      - name: Set up environment variables
+        run: |
+          cat > .env << EOF
+          # Database (using PostgreSQL service container)
+          DATABASE_URL=postgresql://curlinator_test:test_password@localhost:5432/curlinator_test
+          DATABASE_MAX_RETRIES=3
 
-        # JWT Authentication
-        JWT_SECRET=test-secret-key-for-ci-only-not-for-production
-        JWT_EXPIRATION_MINUTES=10080
+          # JWT Authentication
+          JWT_SECRET=test-secret-key-for-ci-only-not-for-production
+          JWT_EXPIRATION_MINUTES=10080
 
-        # LLM Provider Configuration
-        LLM_PROVIDER=${{ secrets.LLM_PROVIDER || 'gemini' }}
-        LLM_MODEL=${{ secrets.LLM_MODEL || 'gemini-1.5-flash' }}
-        LLM_TEMPERATURE=0.1
+          # LLM Provider Configuration
+          LLM_PROVIDER=${{ secrets.LLM_PROVIDER || 'gemini' }}
+          LLM_MODEL=${{ secrets.LLM_MODEL || 'gemini-1.5-flash' }}
+          LLM_TEMPERATURE=0.1
 
-        # API Keys (from GitHub Secrets)
-        OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY || 'sk-test-key-not-real' }}
-        GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || 'test-key-not-real' }}
-        ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY || 'test-key-not-real' }}
+          # API Keys (from GitHub Secrets)
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY || 'sk-test-key-not-real' }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY || 'test-key-not-real' }}
+          ANTHROPIC_API_KEY=${{ secrets.ANTHROPIC_API_KEY || 'test-key-not-real' }}
 
-        # Embedding Provider
-        EMBEDDING_PROVIDER=${{ secrets.EMBEDDING_PROVIDER || 'gemini' }}
-        EMBEDDING_MODEL=models/text-embedding-004
+          # Embedding Provider
+          EMBEDDING_PROVIDER=${{ secrets.EMBEDDING_PROVIDER || 'gemini' }}
+          EMBEDDING_MODEL=models/text-embedding-004
 
-        # Chroma Vector Database
-        CHROMA_PERSIST_DIR=./chroma_db
+          # Chroma Vector Database
+          CHROMA_PERSIST_DIR=./chroma_db
 
-        # API Server Configuration
-        HOST=0.0.0.0
-        PORT=8000
-        ENVIRONMENT=test
-        LOG_LEVEL=INFO
+          # API Server Configuration
+          HOST=0.0.0.0
+          PORT=8000
+          ENVIRONMENT=test
+          LOG_LEVEL=INFO
 
-        # CORS Configuration
-        ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
+          # CORS Configuration
+          ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 
-        # Error Tracking (Sentry) - disabled in CI
-        SENTRY_DSN=
-        SENTRY_ENVIRONMENT=ci
-        SENTRY_TRACES_SAMPLE_RATE=0.0
-        EOF
+          # Error Tracking (Sentry) - disabled in CI
+          SENTRY_DSN=
+          SENTRY_ENVIRONMENT=ci
+          SENTRY_TRACES_SAMPLE_RATE=0.0
+          EOF
 
-    - name: Run database migrations
-      run: |
-        python -m alembic upgrade head
+      - name: Run database migrations
+        env:
+          DATABASE_URL: postgresql://curlinator_test:test_password@localhost:5432/curlinator_test
+        run: |
+          python -m alembic upgrade head
 
-    - name: Run tests with coverage
-      run: |
-        python -m pytest tests/ -v --tb=short --cov=src/curlinator --cov-report=term-missing --cov-report=xml
+      - name: Run tests with coverage
+        env:
+          DATABASE_URL: postgresql://curlinator_test:test_password@localhost:5432/curlinator_test
+          DATABASE_MAX_RETRIES: "3"
+          JWT_SECRET: test-secret-key-for-ci-only-not-for-production
+          JWT_EXPIRATION_MINUTES: "10080"
+          LLM_PROVIDER: ${{ secrets.LLM_PROVIDER || 'gemini' }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL || 'gemini-1.5-flash' }}
+          LLM_TEMPERATURE: "0.1"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY || 'sk-test-key-not-real' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'test-key-not-real' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || 'test-key-not-real' }}
+          EMBEDDING_PROVIDER: ${{ secrets.EMBEDDING_PROVIDER || 'gemini' }}
+          EMBEDDING_MODEL: models/text-embedding-004
+          CHROMA_PERSIST_DIR: ./chroma_db
+          HOST: 0.0.0.0
+          PORT: "8000"
+          ENVIRONMENT: test
+          LOG_LEVEL: INFO
+          ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+          SENTRY_DSN: ""
+          SENTRY_ENVIRONMENT: ci
+          SENTRY_TRACES_SAMPLE_RATE: "0.0"
+        run: |
+          python -m pytest tests/ -v --tb=short --cov=src/curlinator --cov-report=term-missing --cov-report=xml
 
-    - name: Upload coverage reports to Codecov (optional)
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: codecov/codecov-action@v4
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
-      continue-on-error: true
+      - name: Upload coverage reports to Codecov (optional)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+        continue-on-error: true
 
-    - name: Test summary
-      if: always()
-      run: |
-        echo "## Test Results" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        if [ ${{ job.status }} == 'success' ]; then
-          echo "✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "❌ Some tests failed. Check the logs above." >> $GITHUB_STEP_SUMMARY
-        fi
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ All tests passed!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Some tests failed. Check the logs above." >> $GITHUB_STEP_SUMMARY
+          fi
 
   lint:
     name: Code Quality
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v3
-      with:
-        version: "latest"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
 
-    - name: Install dependencies
-      run: |
-        uv pip install --system -e ".[dev]"
+      - name: Install dependencies
+        run: |
+          uv pip install --system -e ".[dev]"
 
-    - name: Run ruff linter
-      run: |
-        ruff check src/ tests/
-      continue-on-error: true
+      - name: Run ruff linter
+        run: |
+          ruff check src/ tests/
+        continue-on-error: true
 
-    - name: Run ruff formatter check
-      run: |
-        ruff format --check src/ tests/
-      continue-on-error: true
+      - name: Run ruff formatter check
+        run: |
+          ruff format --check src/ tests/
+        continue-on-error: true
 
-    - name: Lint summary
-      if: always()
-      run: |
-        echo "## Lint Results" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "Code quality checks completed. See logs for details." >> $GITHUB_STEP_SUMMARY
+      - name: Lint summary
+        if: always()
+        run: |
+          echo "## Lint Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Code quality checks completed. See logs for details." >> $GITHUB_STEP_SUMMARY
