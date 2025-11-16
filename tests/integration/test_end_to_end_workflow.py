@@ -7,10 +7,18 @@ They test that documents from DocumentationAgent work seamlessly with ChatAgent,
 and that the complete workflow produces correct results.
 
 Note: These tests make real HTTP requests and LLM API calls. They are marked with
-@pytest.mark.integration and @pytest.mark.slow.
+@pytest.mark.integration, @pytest.mark.slow, and require a valid LLM API key.
+
+These tests are SKIPPED in CI when no valid LLM API key is available to avoid:
+- API costs (LLM calls are expensive)
+- Rate limits (frequent CI runs could hit limits)
+- Slow execution (LLM calls add significant time)
+
+Run locally with a valid API key (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY)
+to test the complete end-to-end workflow.
 
 Usage:
-    # Run all end-to-end tests
+    # Run all end-to-end tests (requires valid LLM API key)
     pytest tests/integration/test_end_to_end_workflow.py -v
 
     # Run specific test
@@ -28,10 +36,11 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 from curlinator.agents import DocumentationAgent, ChatAgent
 from curlinator.config import get_settings
+from tests.integration.conftest import requires_llm
 
 
-# Mark all tests in this module as integration and slow
-pytestmark = [pytest.mark.integration, pytest.mark.slow]
+# Mark all tests in this module as integration, slow, and requiring LLM
+pytestmark = [pytest.mark.integration, pytest.mark.slow, requires_llm]
 
 
 # ============================================================================

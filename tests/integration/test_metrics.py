@@ -4,6 +4,7 @@ Integration tests for Prometheus metrics.
 Tests that metrics are properly collected and exposed via the /metrics endpoint.
 """
 
+import re
 import pytest
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
@@ -27,6 +28,46 @@ def override_get_db():
         yield db
     finally:
         db.close()
+
+
+def get_metric_total(metrics_text: str, metric_name: str, labels: dict = None) -> float:
+    """
+    Extract and sum all values for a metric from Prometheus metrics text.
+
+    For Counter metrics with labels, this sums all values across all label combinations.
+    For example, if curlinator_http_requests_total has multiple lines with different
+    method/endpoint/status_code combinations, this returns the sum of all values.
+
+    Args:
+        metrics_text: The full Prometheus metrics output
+        metric_name: Name of the metric to extract (e.g., 'curlinator_http_requests_total')
+        labels: Optional dict of label key-value pairs to filter by (e.g., {'method': 'GET'})
+
+    Returns:
+        The sum of all matching metric values as a float, or 0.0 if not found
+
+    Example:
+        >>> text = '''
+        ... curlinator_http_requests_total{method="GET",endpoint="/api",status_code="200"} 10.0
+        ... curlinator_http_requests_total{method="POST",endpoint="/api",status_code="201"} 5.0
+        ... '''
+        >>> get_metric_total(text, 'curlinator_http_requests_total')
+        15.0
+    """
+    # Build regex pattern for the metric
+    if labels:
+        # Build label pattern to match specific labels
+        label_patterns = [f'{k}="{v}"' for k, v in labels.items()]
+        label_pattern = r'\{[^}]*' + '.*'.join(re.escape(lp) for lp in label_patterns) + r'[^}]*\}'
+        pattern = rf'{re.escape(metric_name)}{label_pattern}\s+(\d+(?:\.\d+)?)'
+    else:
+        # Match any labels or no labels
+        pattern = rf'{re.escape(metric_name)}(?:\{{[^}}]*\}})?\s+(\d+(?:\.\d+)?)'
+
+    # Find all matches and sum them
+    matches = re.findall(pattern, metrics_text)
+    total = sum(float(value) for value in matches)
+    return total
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -274,19 +315,30 @@ class TestMetricsIncrements:
         response1 = client.get("/metrics")
         content1 = response1.text
 
-        # Make a request
+        # Extract initial counter value (sum across all label combinations)
+        initial_count = get_metric_total(content1, "curlinator_http_requests_total")
+
+        # Make a request (this should increment the counter)
+        # Note: /metrics endpoint is excluded from metrics collection to avoid recursion
         client.get(
             "/api/v1/collections",
             headers={"Authorization": f"Bearer {test_user['token']}"}
         )
-        
+
         # Get updated metrics
         response2 = client.get("/metrics")
         content2 = response2.text
-        
-        # Metrics should have changed (more lines or different values)
-        # This is a basic check - in a real scenario you'd parse the metrics
-        assert len(content2) >= len(content1)
+
+        # Extract updated counter value (sum across all label combinations)
+        updated_count = get_metric_total(content2, "curlinator_http_requests_total")
+
+        # Verify the counter has incremented
+        # The counter should increment by exactly 1 for the /api/v1/collections request
+        # (/metrics requests are not counted to avoid recursion)
+        assert updated_count > initial_count, (
+            f"HTTP request counter should increment after making a request. "
+            f"Initial: {initial_count}, Updated: {updated_count}"
+        )
 
 
 class TestMetricsAvailability:

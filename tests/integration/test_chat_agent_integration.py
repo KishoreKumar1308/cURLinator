@@ -7,8 +7,14 @@ and Chroma vector database integration.
 Note: These tests require an LLM API key (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY)
 and make real API calls. They are marked with @pytest.mark.integration.
 
+These tests are SKIPPED in CI when no valid LLM API key is available to avoid:
+- API costs (LLM calls are expensive)
+- Rate limits (frequent CI runs could hit limits)
+
+Run locally with a valid API key to test ChatAgent functionality.
+
 Usage:
-    # Run all integration tests
+    # Run all integration tests (requires valid LLM API key)
     pytest tests/integration/test_chat_agent_integration.py -v
 
     # Run specific test
@@ -27,28 +33,11 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 from curlinator.agents import ChatAgent
 from curlinator.config import get_settings
-from curlinator.api.utils.llm_validation import is_valid_api_key
+from tests.integration.conftest import requires_llm
 
 
-def _has_llm_api_key():
-    """Check if any VALID LLM API key is available"""
-    settings = get_settings()
-    return bool(
-        is_valid_api_key(settings.openai_api_key, "openai") or
-        is_valid_api_key(settings.anthropic_api_key, "anthropic") or
-        is_valid_api_key(settings.gemini_api_key, "gemini")
-    )
-
-
-# Skip marker for tests that require LLM API key
-requires_llm_api_key = pytest.mark.skipif(
-    not _has_llm_api_key(),
-    reason="No valid LLM API key found (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY)"
-)
-
-
-# Mark all tests in this module as integration tests
-pytestmark = pytest.mark.integration
+# Mark all tests in this module as integration tests and requiring LLM
+pytestmark = [pytest.mark.integration, requires_llm]
 
 
 # ============================================================================
@@ -152,7 +141,6 @@ def test_persist_directory(tmp_path):
 # ============================================================================
 
 @pytest.mark.asyncio
-@requires_llm_api_key
 async def test_query_with_documents(
     setup_embedding_model,
     sample_api_documents,
@@ -192,7 +180,6 @@ async def test_query_with_documents(
 
 
 @pytest.mark.asyncio
-@requires_llm_api_key
 async def test_query_returns_relevant_sources(
     setup_embedding_model,
     sample_api_documents,
@@ -229,7 +216,6 @@ async def test_query_returns_relevant_sources(
 # ============================================================================
 
 @pytest.mark.asyncio
-@requires_llm_api_key
 async def test_curl_command_generation(
     setup_embedding_model,
     sample_api_documents,
@@ -264,7 +250,6 @@ async def test_curl_command_generation(
 # ============================================================================
 
 @pytest.mark.asyncio
-@requires_llm_api_key
 async def test_conversation_history_maintained(
     setup_embedding_model,
     sample_api_documents,
@@ -300,7 +285,6 @@ async def test_conversation_history_maintained(
 # ============================================================================
 
 @pytest.mark.asyncio
-@requires_llm_api_key
 async def test_chroma_persistence(
     setup_embedding_model,
     sample_api_documents,
@@ -343,7 +327,6 @@ async def test_chroma_persistence(
 # ============================================================================
 
 @pytest.mark.asyncio
-@requires_llm_api_key
 async def test_empty_documents_handling(
     setup_embedding_model,
     test_collection_name,
@@ -362,7 +345,6 @@ async def test_empty_documents_handling(
 
 
 @pytest.mark.asyncio
-@requires_llm_api_key
 async def test_invalid_query_handling(
     setup_embedding_model,
     sample_api_documents,

@@ -101,9 +101,13 @@ def setup_test_environment():
         del os.environ["TESTING"]
 
 
-@pytest.fixture(scope="session")
-def check_api_key():
-    """Check if a VALID API key is available for LLM tests"""
+def _has_valid_llm_api_key():
+    """
+    Check if a VALID API key is available for LLM tests.
+
+    Returns True if at least one valid (non-test/placeholder) API key is configured.
+    Used by pytest.mark.skipif to skip tests that require real LLM API access.
+    """
     from curlinator.config import get_settings
 
     settings = get_settings()
@@ -114,4 +118,18 @@ def check_api_key():
     )
 
     return has_key
+
+
+@pytest.fixture(scope="session")
+def check_api_key():
+    """Check if a VALID API key is available for LLM tests"""
+    return _has_valid_llm_api_key()
+
+
+# Pytest marker for tests that require a real LLM API key
+requires_llm = pytest.mark.skipif(
+    not _has_valid_llm_api_key(),
+    reason="Requires valid LLM API key (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY). "
+           "Skipping in CI to avoid API costs and rate limits. Run locally with valid API key to test."
+)
 
