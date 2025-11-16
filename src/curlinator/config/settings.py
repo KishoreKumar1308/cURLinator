@@ -31,7 +31,7 @@ class Settings(BaseSettings):
     vector_collection_name: str = "api_documentation"
 
     # Application Configuration
-    environment: Literal["development", "staging", "production"] = "development"
+    environment: Literal["development", "staging", "production", "test"] = "development"
     log_level: str = "INFO"
 
     # API Server Configuration
