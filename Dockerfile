@@ -16,7 +16,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy dependency files
 COPY pyproject.toml README.md ./
 
-# Install Python dependencies
+# Copy source code (needed for editable install to work)
+COPY src ./src
+
+# Install Python dependencies in editable mode
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -e .
 
