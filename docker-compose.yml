@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: curlinator-postgres
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-curlinator}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-curlinator_dev_password}
+      POSTGRES_DB: ${DATABASE_NAME:-curlinator_db}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DATABASE_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-curlinator}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - curlinator-network
+    restart: unless-stopped
+
+  # cURLinator API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: curlinator-api
+    environment:
+      # Database Configuration
+      DATABASE_URL: postgresql://${DATABASE_USER:-curlinator}:${DATABASE_PASSWORD:-curlinator_dev_password}@postgres:5432/${DATABASE_NAME:-curlinator_db}
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${DATABASE_USER:-curlinator}
+      
+      # JWT Configuration
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production-min-32-chars}
+      JWT_EXPIRATION_MINUTES: ${JWT_EXPIRATION_MINUTES:-10080}
+      
+      # LLM Provider Configuration (at least one required)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      
+      # LLM Model Configuration
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.0}
+      
+      # Embedding Configuration
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-LOCAL}
+      
+      # Chroma Vector Database
+      CHROMA_PERSIST_DIR: /app/chroma_db
+      
+      # API Server Configuration
+      HOST: 0.0.0.0
+      PORT: 8000
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # CORS Configuration
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      
+      # Testing flag (set to false in production)
+      TESTING: ${TESTING:-false}
+    volumes:
+      # Persist Chroma vector database
+      - chroma_data:/app/chroma_db
+      # Persist logs
+      - ./logs:/app/logs
+      # Mount source code for development (comment out for production)
+      - ./src:/app/src
+      - ./alembic:/app/alembic
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - curlinator-network
+    restart: unless-stopped
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: curlinator-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@curlinator.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      - postgres
+    networks:
+      - curlinator-network
+    restart: unless-stopped
+    profiles:
+      - tools
+
+volumes:
+  postgres_data:
+    driver: local
+  chroma_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  curlinator-network:
+    driver: bridge
+
