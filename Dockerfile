@@ -13,15 +13,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files
+# Copy dependency files and source code
 COPY pyproject.toml README.md ./
-
-# Copy source code (needed for editable install to work)
 COPY src ./src
 
-# Install Python dependencies in editable mode
+# Install Python dependencies and package
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -e .
+    pip install --no-cache-dir .
 
 # Stage 2: Runtime stage
 FROM python:3.11-slim
@@ -46,9 +44,6 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY --chown=curlinator:curlinator . .
-
-# Install the application in editable mode
-RUN pip install --no-cache-dir -e .
 
 # Create directories for Chroma and logs
 RUN mkdir -p /app/chroma_db /app/logs && \
