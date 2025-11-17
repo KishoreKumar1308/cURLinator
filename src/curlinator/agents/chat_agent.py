@@ -299,15 +299,30 @@ Now, answer the user's question using the provided API documentation."""
             self._log("Created vector retriever (top_k=5)")
 
             # 2. Create BM25 retriever (if possible)
-            # Try to get nodes from docstore first, then from documents
+            # Try to get nodes from multiple sources
             nodes = None
             bm25_retriever = None
 
+            # Try 1: Get from docstore (available when building new index)
             if hasattr(self.index, 'docstore') and self.index.docstore.docs:
                 nodes = list(self.index.docstore.docs.values())
                 self._log(f"Got {len(nodes)} nodes from docstore")
-            elif self.documents:
-                # Fallback: create nodes from documents
+            # Try 2: Get from vector store (available when loading from storage)
+            elif hasattr(self.index, 'vector_store'):
+                try:
+                    # Retrieve all nodes from vector store using a broad query
+                    retriever = self.index.as_retriever(similarity_top_k=100)
+                    # Get all nodes by querying with empty string or broad term
+                    from llama_index.core import QueryBundle
+                    query_bundle = QueryBundle(query_str="")
+                    retrieved_nodes = retriever.retrieve(query_bundle)
+                    if retrieved_nodes:
+                        nodes = [node.node for node in retrieved_nodes]
+                        self._log(f"Retrieved {len(nodes)} nodes from vector store")
+                except Exception as e:
+                    self._log(f"⚠️  Could not retrieve nodes from vector store: {e}")
+            # Try 3: Create from documents (fallback)
+            if not nodes and self.documents:
                 from llama_index.core.node_parser import SentenceSplitter
                 parser = SentenceSplitter()
                 nodes = parser.get_nodes_from_documents(self.documents)
