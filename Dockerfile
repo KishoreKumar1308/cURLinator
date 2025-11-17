@@ -17,9 +17,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY pyproject.toml README.md ./
 COPY src ./src
 
-# Install Python dependencies and package (server extras only, no crawling dependencies)
+# Install Python dependencies and package
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir ".[server]"
+    pip install --no-cache-dir .
 
 # Stage 2: Runtime stage
 FROM python:3.11-slim
