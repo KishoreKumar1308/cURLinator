@@ -227,8 +227,8 @@ class DocumentationAgent(BaseAgent):
             import chromedriver_autoinstaller
         except ImportError:
             raise ImportError(
-                "Please install selenium and chromedriver_autoinstaller: "
-                "pip install selenium chromedriver-autoinstaller"
+                "Crawling dependencies not installed. "
+                "Install with: pip install curlinator[crawling]"
             )
 
         # Install chromedriver if needed

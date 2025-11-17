@@ -122,11 +122,22 @@ async def crawl_documentation(
             )
 
         # Initialize DocumentationAgent
-        doc_agent = DocumentationAgent(
-            max_pages=request.max_pages,
-            max_depth=request.max_depth,
-            verbose=True,
-        )
+        try:
+            doc_agent = DocumentationAgent(
+                max_pages=request.max_pages,
+                max_depth=request.max_depth,
+                verbose=True,
+            )
+        except ImportError as e:
+            log_adapter.error(f"Crawling dependencies not installed: {str(e)}")
+            raise HTTPException(
+                status_code=503,
+                detail=create_error_response(
+                    error_code="CRAWL_DEPENDENCIES_MISSING",
+                    message="Web crawling functionality is not available in this deployment",
+                    suggestion="This feature requires additional dependencies. Contact the administrator to enable crawling support."
+                )
+            )
 
         # Execute crawl with timeout (async method)
         try:
