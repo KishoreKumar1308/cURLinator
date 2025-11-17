@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
-async def register(http_request: Request, request: RegisterRequest, db: Session = Depends(get_db)):
+async def register(request: Request, body: RegisterRequest, db: Session = Depends(get_db)):
     """
     Register a new user.
 
@@ -46,7 +46,8 @@ async def register(http_request: Request, request: RegisterRequest, db: Session 
     Returns a JWT access token for immediate authentication.
 
     Args:
-        request: RegisterRequest with email and password
+        request: Starlette Request object (for rate limiting)
+        body: RegisterRequest with email and password
         db: Database session
 
     Returns:
@@ -56,29 +57,29 @@ async def register(http_request: Request, request: RegisterRequest, db: Session 
         HTTPException: If email already registered or database error occurs
     """
     # Get correlation ID from request state
-    correlation_id = getattr(http_request.state, 'correlation_id', 'N/A')
+    correlation_id = getattr(request.state, 'correlation_id', 'N/A')
     log_adapter = logging.LoggerAdapter(logger, {'correlation_id': correlation_id})
 
-    log_adapter.info(f"Registration attempt for email: {request.email}")
+    log_adapter.info(f"Registration attempt for email: {body.email}")
 
     try:
         # Check if user already exists
-        existing_user = db.query(User).filter(User.email == request.email).first()
+        existing_user = db.query(User).filter(User.email == body.email).first()
         if existing_user:
-            log_adapter.warning(f"Registration failed: Email already exists - {request.email}")
+            log_adapter.warning(f"Registration failed: Email already exists - {body.email}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=create_error_response(
                     error_code=RESOURCE_ALREADY_EXISTS,
-                    message=f"An account with email '{request.email}' already exists.",
+                    message=f"An account with email '{body.email}' already exists.",
                     suggestion="Please use a different email address or try logging in."
                 )
             )
 
         # Create new user
         user = User(
-            email=request.email,
-            hashed_password=get_password_hash(request.password),
+            email=body.email,
+            hashed_password=get_password_hash(body.password),
             is_active=True,
             is_anonymous=False,
         )
@@ -158,7 +159,7 @@ async def register(http_request: Request, request: RegisterRequest, db: Session 
 
 @router.post("/login", response_model=AuthResponse)
 @limiter.limit("10/minute")
-async def login(http_request: Request, request: LoginRequest, db: Session = Depends(get_db)):
+async def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     """
     Login an existing user.
 
@@ -166,7 +167,8 @@ async def login(http_request: Request, request: LoginRequest, db: Session = Depe
     Returns a JWT access token.
 
     Args:
-        request: LoginRequest with email and password
+        request: Starlette Request object (for rate limiting)
+        body: LoginRequest with email and password
         db: Database session
 
     Returns:
@@ -176,15 +178,15 @@ async def login(http_request: Request, request: LoginRequest, db: Session = Depe
         HTTPException: If credentials are invalid or database error occurs
     """
     # Get correlation ID from request state
-    correlation_id = getattr(http_request.state, 'correlation_id', 'N/A')
+    correlation_id = getattr(request.state, 'correlation_id', 'N/A')
     log_adapter = logging.LoggerAdapter(logger, {'correlation_id': correlation_id})
 
-    log_adapter.info(f"Login attempt for email: {request.email}")
+    log_adapter.info(f"Login attempt for email: {body.email}")
     try:
-        user = authenticate_user(db, request.email, request.password)
+        user = authenticate_user(db, body.email, body.password)
 
         if not user:
-            log_adapter.warning(f"Login failed: Invalid credentials for {request.email}")
+            log_adapter.warning(f"Login failed: Invalid credentials for {body.email}")
             auth_attempts_total.labels(endpoint="login", status="failure").inc()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

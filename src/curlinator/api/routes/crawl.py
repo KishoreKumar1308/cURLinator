@@ -47,8 +47,8 @@ CRAWL_TIMEOUT_SECONDS = 600  # 10 minutes
 @router.post("/crawl", response_model=CrawlResponse)
 @limiter.limit("5/hour")
 async def crawl_documentation(
-    http_request: Request,
-    request: CrawlRequest,
+    request: Request,
+    body: CrawlRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -65,7 +65,8 @@ async def crawl_documentation(
     5. Returns a collection_name for future queries
 
     Args:
-        request: CrawlRequest with url, max_pages, max_depth
+        request: Starlette Request object (for rate limiting)
+        body: CrawlRequest with url, max_pages, max_depth
         current_user: Authenticated user (from JWT token)
         db: Database session
 
@@ -80,7 +81,7 @@ async def crawl_documentation(
             - 500 if unexpected error occurs
     """
     # Get correlation ID from request state
-    correlation_id = getattr(http_request.state, 'correlation_id', 'N/A')
+    correlation_id = getattr(request.state, 'correlation_id', 'N/A')
     log_adapter = logging.LoggerAdapter(logger, {'correlation_id': correlation_id})
 
     crawl_id = None
@@ -89,18 +90,18 @@ async def crawl_documentation(
     try:
         # Validate request parameters
         validate_crawl_request(
-            url=str(request.url),
-            max_pages=request.max_pages,
-            max_depth=request.max_depth
+            url=str(body.url),
+            max_pages=body.max_pages,
+            max_depth=body.max_depth
         )
 
         crawl_id = str(uuid.uuid4())
         collection_name = f"crawl_{crawl_id}"
 
         log_adapter.info(
-            f"Starting crawl: URL={request.url}, max_pages={request.max_pages}, "
-            f"max_depth={request.max_depth}, user={current_user.email}, "
-            f"embedding_provider={request.embedding_provider}"
+            f"Starting crawl: URL={body.url}, max_pages={body.max_pages}, "
+            f"max_depth={body.max_depth}, user={current_user.email}, "
+            f"embedding_provider={body.embedding_provider}"
         )
 
         # Start timer for crawl duration
@@ -108,7 +109,7 @@ async def crawl_documentation(
 
         # Get embedding model based on request
         try:
-            embed_model, provider_name, model_name = get_embedding_model(request.embedding_provider)
+            embed_model, provider_name, model_name = get_embedding_model(body.embedding_provider)
             log_adapter.info(f"Initialized embedding model: {provider_name}/{model_name}")
         except Exception as e:
             log_adapter.error(f"Failed to initialize embedding model: {str(e)}")
@@ -123,15 +124,15 @@ async def crawl_documentation(
 
         # Initialize DocumentationAgent
         doc_agent = DocumentationAgent(
-            max_pages=request.max_pages,
-            max_depth=request.max_depth,
+            max_pages=body.max_pages,
+            max_depth=body.max_depth,
             verbose=True,
         )
 
         # Execute crawl with timeout (async method)
         try:
             documents = await asyncio.wait_for(
-                doc_agent.execute(str(request.url)),
+                doc_agent.execute(str(body.url)),
                 timeout=CRAWL_TIMEOUT_SECONDS
             )
         except asyncio.TimeoutError:
@@ -209,12 +210,12 @@ async def crawl_documentation(
 
         # Save collection to database with embedding metadata
         try:
-            parsed_url = urlparse(str(request.url))
+            parsed_url = urlparse(str(body.url))
             domain = parsed_url.netloc
 
             collection = DocumentationCollection(
                 name=collection_name,
-                url=str(request.url),
+                url=str(body.url),
                 domain=domain,
                 pages_crawled=len(documents),
                 owner_id=current_user.id,

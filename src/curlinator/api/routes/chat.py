@@ -43,8 +43,8 @@ logger = logging.getLogger(__name__)
 @router.post("/chat", response_model=ChatResponse)
 @limiter.limit("60/minute")
 async def chat(
-    http_request: Request,
-    request: ChatRequest,
+    request: Request,
+    body: ChatRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -65,7 +65,8 @@ async def chat(
     9. Returns response, cURL command, sources, and session_id
 
     Args:
-        request: ChatRequest with collection_name, message, and optional session_id
+        request: Starlette Request object (for rate limiting)
+        body: ChatRequest with collection_name, message, and optional session_id
         db: Database session dependency
         current_user: Authenticated user from JWT token
 
@@ -80,15 +81,15 @@ async def chat(
 
     try:
         # Get correlation ID from request state
-        correlation_id = getattr(http_request.state, 'correlation_id', 'N/A')
+        correlation_id = getattr(request.state, 'correlation_id', 'N/A')
         log_adapter = logging.LoggerAdapter(logger, {'correlation_id': correlation_id})
 
-        log_adapter.info(f"Chat query for collection: {request.collection_name}")
+        log_adapter.info(f"Chat query for collection: {body.collection_name}")
 
         # Check if user has access to the collection (owner, shared with CHAT permission, or public)
         collection, user_permission = get_accessible_collection(
             db,
-            request.collection_name,
+            body.collection_name,
             current_user,
             required_permission=SharePermission.CHAT  # Require CHAT permission
         )
@@ -99,21 +100,21 @@ async def chat(
 
         # Get or create chat session
         chat_session = None
-        if request.session_id:
+        if body.session_id:
             # Load existing session
             chat_session = db.query(ChatSession).filter(
-                ChatSession.id == request.session_id,
+                ChatSession.id == body.session_id,
                 ChatSession.user_id == current_user.id,
                 ChatSession.collection_id == collection.id
             ).first()
 
             if not chat_session:
-                log_adapter.warning(f"Session not found: {request.session_id}")
+                log_adapter.warning(f"Session not found: {body.session_id}")
                 raise HTTPException(
                     status_code=404,
                     detail={
                         "error": "Session not found",
-                        "message": f"Chat session '{request.session_id}' not found or you don't have access to it",
+                        "message": f"Chat session '{body.session_id}' not found or you don't have access to it",
                         "suggestion": "Start a new conversation by omitting the session_id"
                     }
                 )
@@ -142,11 +143,11 @@ async def chat(
 
         # If conversation_history is provided in request (deprecated), use it instead
         # This maintains backward compatibility
-        if request.conversation_history:
+        if body.conversation_history:
             log_adapter.warning("Using deprecated conversation_history field. Please use session_id instead.")
             history = [
                 {"role": msg.role, "content": msg.content}
-                for msg in request.conversation_history
+                for msg in body.conversation_history
             ]
 
         log_adapter.info(f"Loaded {len(history)} messages from conversation history")
@@ -179,11 +180,11 @@ async def chat(
         # Load ChatAgent with existing collection and correct embedding model
         try:
             chat_agent = ChatAgent(
-                collection_name=request.collection_name,
+                collection_name=body.collection_name,
                 embed_model=embed_model,
                 verbose=True,
             )
-            log_adapter.info(f"Successfully loaded ChatAgent for collection: {request.collection_name}")
+            log_adapter.info(f"Successfully loaded ChatAgent for collection: {body.collection_name}")
         except ValueError as e:
             # Check if it's an LLM initialization error
             error_msg = str(e)
@@ -205,7 +206,7 @@ async def chat(
                     status_code=404,
                     detail={
                         "error": "Collection not found in vector store",
-                        "message": f"Collection '{request.collection_name}' exists in database but not in vector store",
+                        "message": f"Collection '{body.collection_name}' exists in database but not in vector store",
                         "suggestion": "The collection may be corrupted. Try re-crawling the documentation."
                     }
                 )
@@ -215,7 +216,7 @@ async def chat(
                 status_code=404,
                 detail={
                     "error": "Collection not found in vector store",
-                    "message": f"Collection '{request.collection_name}' exists in database but not in vector store",
+                    "message": f"Collection '{body.collection_name}' exists in database but not in vector store",
                     "suggestion": "The collection may be corrupted. Try re-crawling the documentation."
                 }
             )
@@ -223,21 +224,21 @@ async def chat(
         # Execute query (async method)
         try:
             # Track vector store query
-            vectorstore_queries_total.labels(collection=request.collection_name).inc()
+            vectorstore_queries_total.labels(collection=body.collection_name).inc()
 
             result = await chat_agent.execute(
-                user_query=request.message,
+                user_query=body.message,
                 conversation_history=history,
             )
 
             # Track successful query
             query_duration = time.time() - start_time
             chat_query_duration_seconds.observe(query_duration)
-            chat_queries_total.labels(collection=request.collection_name, status="success").inc()
+            chat_queries_total.labels(collection=body.collection_name, status="success").inc()
 
         except Exception as e:
             log_adapter.error(f"Query execution failed: {str(e)}", exc_info=True)
-            chat_queries_total.labels(collection=request.collection_name, status="failure").inc()
+            chat_queries_total.labels(collection=body.collection_name, status="failure").inc()
             raise HTTPException(
                 status_code=500,
                 detail={
@@ -251,7 +252,7 @@ async def chat(
         user_message = DBChatMessage(
             session_id=chat_session.id,
             role="user",
-            content=request.message
+            content=body.message
         )
         db.add(user_message)
         chat_messages_total.labels(role="user").inc()
