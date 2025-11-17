@@ -70,9 +70,19 @@ RUN wget -q -O /tmp/google-chrome-key.pub https://dl-ssl.google.com/linux/linux_
 # Verify Chrome installation
 RUN google-chrome --version
 
+# Pre-install ChromeDriver to avoid runtime permission issues
+# This downloads ChromeDriver matching the installed Chrome version
+RUN pip install --no-cache-dir chromedriver-autoinstaller && \
+    python3 -c "import chromedriver_autoinstaller; chromedriver_autoinstaller.install()" && \
+    echo "✅ ChromeDriver pre-installed successfully"
+
 # Create non-root user for security
 RUN useradd -m -u 1000 curlinator && \
     chown -R curlinator:curlinator /app
+
+# Create writable cache directory for ChromeDriver updates (fallback)
+RUN mkdir -p /app/.cache/chromedriver && \
+    chown -R curlinator:curlinator /app/.cache
 
 # Copy Python dependencies from builder stage
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages

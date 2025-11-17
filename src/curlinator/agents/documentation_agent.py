@@ -232,7 +232,14 @@ class DocumentationAgent(BaseAgent):
             )
 
         # Install chromedriver if needed
-        chromedriver_path = chromedriver_autoinstaller.install()
+        # Try to use pre-installed ChromeDriver first (from Docker build)
+        # If that fails (permission denied), fall back to writable cache directory
+        try:
+            chromedriver_path = chromedriver_autoinstaller.install()
+        except PermissionError:
+            # Fallback: Install to current working directory (writable by non-root user)
+            self._log("⚠️  Permission denied for default ChromeDriver location, using writable cache...")
+            chromedriver_path = chromedriver_autoinstaller.install(cwd=True)
 
         # Configure Chrome options with stability improvements
         options = webdriver.ChromeOptions()
