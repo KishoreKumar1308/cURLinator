@@ -19,12 +19,7 @@ COPY src ./src
 
 # Install Python dependencies and package
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir . && \
-    find /usr/local/lib/python3.11/site-packages -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
-    find /usr/local/lib/python3.11/site-packages -type d -name "test" -exec rm -rf {} + 2>/dev/null || true && \
-    find /usr/local/lib/python3.11/site-packages -name "*.pyc" -delete && \
-    find /usr/local/lib/python3.11/site-packages -name "*.pyo" -delete && \
-    find /usr/local/lib/python3.11/site-packages -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+    pip install --no-cache-dir .
 
 # Stage 2: Runtime stage
 FROM python:3.11-slim
