@@ -19,7 +19,12 @@ COPY src ./src
 
 # Install Python dependencies and package
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir .
+    pip install --no-cache-dir . && \
+    find /usr/local/lib/python3.11/site-packages -type d -name "tests" -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local/lib/python3.11/site-packages -type d -name "test" -exec rm -rf {} + 2>/dev/null || true && \
+    find /usr/local/lib/python3.11/site-packages -name "*.pyc" -delete && \
+    find /usr/local/lib/python3.11/site-packages -name "*.pyo" -delete && \
+    find /usr/local/lib/python3.11/site-packages -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # Stage 2: Runtime stage
 FROM python:3.11-slim
@@ -42,12 +47,17 @@ RUN useradd -m -u 1000 curlinator && \
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application code
-COPY --chown=curlinator:curlinator . .
+# Copy only necessary application files
+COPY --chown=curlinator:curlinator src ./src
+COPY --chown=curlinator:curlinator alembic ./alembic
+COPY --chown=curlinator:curlinator alembic.ini ./
+COPY --chown=curlinator:curlinator pyproject.toml ./
+COPY --chown=curlinator:curlinator docker-entrypoint.sh ./
 
-# Create directories for Chroma and logs
+# Create directories for Chroma and logs, and set permissions
 RUN mkdir -p /app/chroma_db /app/logs && \
-    chown -R curlinator:curlinator /app/chroma_db /app/logs
+    chown -R curlinator:curlinator /app/chroma_db /app/logs && \
+    chmod +x /app/docker-entrypoint.sh
 
 # Switch to non-root user
 USER curlinator
@@ -64,10 +74,6 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     HOST=0.0.0.0 \
     PORT=8000
-
-# Entrypoint script to run migrations and start server
-COPY --chown=curlinator:curlinator docker-entrypoint.sh /app/
-RUN chmod +x /app/docker-entrypoint.sh
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["uvicorn", "curlinator.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

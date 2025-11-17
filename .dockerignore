@@ -29,17 +29,22 @@ htmlcov/
 .tox/
 .mypy_cache/
 .ruff_cache/
+tests/
+examples/
+test*.db
+test*.log
+*.db
+*.sqlite
+*.sqlite3
 
 # Environment files
 .env
 .env.local
 .env.*.local
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
+# Database (already covered above, removing duplicates)
 chroma_db/
+data/
 
 # Logs
 *.log
@@ -69,4 +74,9 @@ docker-compose.*.yml
 .DS_Store
 *.bak
 *.tmp
+uv.lock
+Makefile
+scripts/
+*.sh
+!docker-entrypoint.sh
 
