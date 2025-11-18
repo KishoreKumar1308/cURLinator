@@ -25,7 +25,7 @@ from curlinator.api.middleware import (
     setup_request_logging,
     setup_metrics
 )
-from curlinator.api.routes import health, crawl, chat, auth, collections, metrics
+from curlinator.api.routes import health, crawl, chat, auth, collections, metrics, admin
 from curlinator.api.utils.llm_validation import validate_llm_config
 from curlinator.config import get_settings
 from curlinator.config.settings import validate_environment
@@ -154,11 +154,12 @@ setup_request_logging(app)  # Add request logging with correlation IDs
 
 # Include routers
 app.include_router(health.router)
-app.include_router(metrics.router)  # Metrics endpoint (no auth required)
+app.include_router(metrics.router)  # Metrics endpoint (requires auth)
 app.include_router(auth.router)
 app.include_router(crawl.router)
 app.include_router(chat.router)
 app.include_router(collections.router)
+app.include_router(admin.router)  # Admin endpoints (requires admin role)
 
 
 # Exception handlers

@@ -25,24 +25,25 @@ class SharePermission(str, enum.Enum):
 
 class User(Base):
     """User model for authentication and ownership tracking."""
-    
+
     __tablename__ = "users"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     is_anonymous = Column(Boolean, default=False)
+    role = Column(String, nullable=False, default="user")  # "user" or "admin"
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     # Relationships
     collections = relationship("DocumentationCollection", back_populates="owner", cascade="all, delete-orphan")
     chat_sessions = relationship("ChatSession", back_populates="user", cascade="all, delete-orphan")
     shared_collections = relationship("CollectionShare", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
-        return f"<User(id={self.id}, email={self.email})>"
+        return f"<User(id={self.id}, email={self.email}, role={self.role})>"
 
 
 class DocumentationCollection(Base):

@@ -155,6 +155,10 @@ IMPLEMENTATION_SUMMARY.md
 *.local.sh
 *.local.py
 
+# Test scripts (not for version control)
+test-railway-deployment.sh
+test-local-api.sh
+
 # ============================================================================
 # Docker (keep Dockerfile and docker-compose.yml)
 # ============================================================================
