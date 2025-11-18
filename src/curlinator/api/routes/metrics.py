@@ -6,30 +6,104 @@ Exposes application metrics in Prometheus format for scraping.
 
 import os
 import logging
-from fastapi import APIRouter, Response, Header, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, Response, Header, HTTPException, status, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from sqlalchemy.orm import Session
+
+from curlinator.api.database import get_db
+from curlinator.api.db.models import User
+from curlinator.api.auth import get_admin_user
 
 router = APIRouter(tags=["metrics"])
 logger = logging.getLogger(__name__)
+security = HTTPBearer(auto_error=False)
 
 # Metrics token for Prometheus scraping (set in environment)
 METRICS_TOKEN = os.getenv("METRICS_TOKEN", "")
 
 
+async def verify_metrics_access(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+    """
+    Verify access to metrics endpoint.
+
+    Allows access via:
+    1. Admin user with JWT token
+    2. Metrics token (for Prometheus scraping)
+
+    Args:
+        credentials: HTTP Bearer credentials
+        db: Database session
+
+    Returns:
+        User object if admin, None if metrics token
+
+    Raises:
+        HTTPException: If authentication fails
+    """
+    # Check if credentials provided
+    if not credentials:
+        logger.warning("Metrics endpoint accessed without authorization")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Provide admin JWT token or metrics token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = credentials.credentials
+
+    # Check if it's the metrics token (for Prometheus)
+    if METRICS_TOKEN and token == METRICS_TOKEN:
+        logger.debug("Metrics endpoint accessed with valid metrics token")
+        return None  # No user for metrics token
+
+    # Otherwise, validate as admin JWT token
+    try:
+        from curlinator.api.auth import get_current_user
+
+        # Create a mock credentials object for get_current_user
+        user = await get_current_user(credentials, db)
+
+        # Check if user is admin
+        if user.role != "admin":
+            logger.warning(f"Non-admin user {user.email} attempted to access metrics endpoint")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin access required to view metrics."
+            )
+
+        logger.debug(f"Metrics endpoint accessed by admin user: {user.email}")
+        return user
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error validating metrics access: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 @router.get("/metrics")
-async def metrics(authorization: str = Header(None)):
+async def metrics(user: Optional[User] = Depends(verify_metrics_access)):
     """
     Prometheus metrics endpoint.
 
     Returns application metrics in Prometheus text format for scraping.
-    Requires authentication via Bearer token or metrics token.
+    Requires admin authentication or metrics token.
 
     Authentication options:
-    1. Bearer token (JWT) - For authenticated users
+    1. Admin JWT token - For admin users
     2. Metrics token - For Prometheus scraping (set METRICS_TOKEN env var)
 
     Args:
-        authorization: Authorization header (Bearer token or metrics token)
+        user: Current admin user (or None if using metrics token)
 
     Returns:
         Response: Metrics in Prometheus text format
@@ -37,32 +111,10 @@ async def metrics(authorization: str = Header(None)):
     Raises:
         HTTPException: If authentication fails
     """
-    logger.debug("Metrics endpoint called")
-
-    # Check if authorization header is provided
-    if not authorization:
-        logger.warning("Metrics endpoint accessed without authorization")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required. Provide Bearer token or metrics token.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Check if it's a metrics token (for Prometheus)
-    if METRICS_TOKEN and authorization == f"Bearer {METRICS_TOKEN}":
-        logger.debug("Metrics endpoint accessed with valid metrics token")
-    # Check if it's a Bearer token (JWT) - we'll validate it's a valid token
-    elif authorization.startswith("Bearer "):
-        # For now, just check that it's a Bearer token
-        # In Phase 2, we'll add admin role check
-        logger.debug("Metrics endpoint accessed with Bearer token")
+    if user:
+        logger.debug(f"Metrics endpoint accessed by admin user: {user.email}")
     else:
-        logger.warning("Metrics endpoint accessed with invalid authorization")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        logger.debug("Metrics endpoint accessed with metrics token")
 
     # Generate Prometheus metrics in text format
     metrics_data = generate_latest()
