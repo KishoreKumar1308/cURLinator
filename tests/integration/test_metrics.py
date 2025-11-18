@@ -13,6 +13,8 @@ from sqlalchemy.orm import sessionmaker
 
 from curlinator.api.main import app
 from curlinator.api.database import get_db, Base
+from curlinator.api.db.models import User
+from curlinator.api.auth import get_password_hash, create_access_token
 
 
 # Test database setup
@@ -116,86 +118,126 @@ def test_user(client):
     }
 
 
+@pytest.fixture
+def admin_user():
+    """Create an admin user directly in the database."""
+    db = TestingSessionLocal()
+    try:
+        user = User(
+            email="admin@example.com",
+            hashed_password=get_password_hash("AdminPassword123"),
+            is_active=True,
+            role="admin",
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    finally:
+        db.close()
+
+
+@pytest.fixture
+def admin_token(admin_user):
+    """Create an authentication token for the admin user."""
+    return create_access_token(data={"sub": admin_user.id})
+
+
 class TestMetricsEndpoint:
     """Test the /metrics endpoint."""
-    
-    def test_metrics_endpoint_exists(self, client):
-        """Test that the /metrics endpoint is accessible."""
-        response = client.get("/metrics")
+
+    def test_metrics_endpoint_exists(self, client, admin_token):
+        """Test that the /metrics endpoint is accessible with admin authentication."""
+        response = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("text/plain")
-    
-    def test_metrics_endpoint_no_auth_required(self, client):
-        """Test that /metrics endpoint doesn't require authentication."""
+
+    def test_metrics_endpoint_requires_auth(self, client):
+        """Test that /metrics endpoint requires authentication."""
         response = client.get("/metrics")
-        assert response.status_code == 200
-        # Should not return 401 Unauthorized
-    
-    def test_metrics_format(self, client):
+        assert response.status_code == 401
+        # Should return 401 Unauthorized without authentication
+
+    def test_metrics_format(self, client, admin_token):
         """Test that metrics are in Prometheus text format."""
-        response = client.get("/metrics")
+        response = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         assert response.status_code == 200
-        
+
         content = response.text
-        
+
         # Check for Prometheus format markers
         assert "# HELP" in content or "# TYPE" in content or "_total" in content
-    
-    def test_app_info_metric(self, client):
+
+    def test_app_info_metric(self, client, admin_token):
         """Test that application info metric is present."""
-        response = client.get("/metrics")
+        response = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         assert response.status_code == 200
-        
+
         content = response.text
-        
+
         # Check for app info metric
         assert "curlinator_app_info" in content
 
 
 class TestHTTPMetrics:
     """Test HTTP request metrics collection."""
-    
-    def test_http_request_metrics_collected(self, client, test_user):
+
+    def test_http_request_metrics_collected(self, client, test_user, admin_token):
         """Test that HTTP requests are tracked in metrics."""
         # Make a request to trigger metrics
         client.get(
             "/api/v1/collections",
             headers={"Authorization": f"Bearer {test_user['token']}"}
         )
-        
-        # Check metrics endpoint
-        response = client.get("/metrics")
+
+        # Check metrics endpoint with admin authentication
+        response = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         assert response.status_code == 200
-        
+
         content = response.text
-        
+
         # Check for HTTP metrics
         assert "curlinator_http_requests_total" in content
         assert "curlinator_http_request_duration_seconds" in content
-    
-    def test_http_metrics_track_status_codes(self, client, test_user):
+
+    def test_http_metrics_track_status_codes(self, client, test_user, admin_token):
         """Test that HTTP metrics track different status codes."""
         # Make successful request (200)
         client.get(
             "/api/v1/collections",
             headers={"Authorization": f"Bearer {test_user['token']}"}
         )
-        
-        # Make unauthorized request (401)
+
+        # Make unauthorized request (403 - no auth header)
         client.get("/api/v1/collections")
-        
-        # Check metrics
-        response = client.get("/metrics")
+
+        # Check metrics with admin authentication
+        response = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         content = response.text
-        
+
         # Should have metrics for both status codes
-        assert "status_code=\"200\"" in content or "status_code=\"401\"" in content
+        assert "status_code=\"200\"" in content or "status_code=\"403\"" in content
 
 
 class TestAuthMetrics:
     """Test authentication metrics collection."""
-    
-    def test_auth_registration_metrics(self, client):
+
+    def test_auth_registration_metrics(self, client, admin_token):
         """Test that user registration is tracked in metrics."""
         import uuid
         # Register a user with unique email
@@ -208,16 +250,19 @@ class TestAuthMetrics:
             }
         )
         assert response.status_code == 201
-        
-        # Check metrics
-        metrics_response = client.get("/metrics")
+
+        # Check metrics with admin authentication
+        metrics_response = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         content = metrics_response.text
-        
+
         # Check for auth metrics
         assert "curlinator_auth_attempts_total" in content
         assert "curlinator_auth_tokens_created_total" in content
-    
-    def test_auth_login_metrics(self, client, test_user):
+
+    def test_auth_login_metrics(self, client, test_user, admin_token):
         """Test that user login is tracked in metrics."""
         # Login
         response = client.post(
@@ -228,11 +273,14 @@ class TestAuthMetrics:
             }
         )
         assert response.status_code == 200
-        
-        # Check metrics
-        metrics_response = client.get("/metrics")
+
+        # Check metrics with admin authentication
+        metrics_response = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         content = metrics_response.text
-        
+
         # Check for auth metrics
         assert "curlinator_auth_attempts_total" in content
         assert "endpoint=\"login\"" in content
@@ -240,8 +288,8 @@ class TestAuthMetrics:
 
 class TestDatabaseMetrics:
     """Test database metrics collection."""
-    
-    def test_database_connection_metrics(self, client):
+
+    def test_database_connection_metrics(self, client, admin_token):
         """Test that database connection metrics are collected."""
         import uuid
         # Make a request that uses the database
@@ -253,37 +301,43 @@ class TestDatabaseMetrics:
                 "password": "TestPass123"
             }
         )
-        
-        # Check metrics
-        response = client.get("/metrics")
+
+        # Check metrics with admin authentication
+        response = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         content = response.text
-        
+
         # Check for database metrics
         assert "curlinator_db_connections_active" in content or "curlinator_db_queries_total" in content
 
 
 class TestMetricsLabels:
     """Test that metrics have proper labels."""
-    
-    def test_http_metrics_have_labels(self, client, test_user):
+
+    def test_http_metrics_have_labels(self, client, test_user, admin_token):
         """Test that HTTP metrics include method and endpoint labels."""
         # Make a GET request
         client.get(
             "/api/v1/collections",
             headers={"Authorization": f"Bearer {test_user['token']}"}
         )
-        
-        # Check metrics
-        response = client.get("/metrics")
+
+        # Check metrics with admin authentication
+        response = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         content = response.text
-        
+
         # Check for labels
         if "curlinator_http_requests_total" in content:
             # Should have method and endpoint labels
             assert "method=" in content
             assert "endpoint=" in content
-    
-    def test_auth_metrics_have_labels(self, client):
+
+    def test_auth_metrics_have_labels(self, client, admin_token):
         """Test that auth metrics include endpoint and status labels."""
         import uuid
         # Register a user with unique email
@@ -295,11 +349,14 @@ class TestMetricsLabels:
                 "password": "TestPass123"
             }
         )
-        
-        # Check metrics
-        response = client.get("/metrics")
+
+        # Check metrics with admin authentication
+        response = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         content = response.text
-        
+
         # Check for labels
         if "curlinator_auth_attempts_total" in content:
             assert "endpoint=" in content
@@ -308,11 +365,14 @@ class TestMetricsLabels:
 
 class TestMetricsIncrements:
     """Test that metrics increment correctly."""
-    
-    def test_request_counter_increments(self, client, test_user):
+
+    def test_request_counter_increments(self, client, test_user, admin_token):
         """Test that request counter increments with each request."""
-        # Get initial metrics
-        response1 = client.get("/metrics")
+        # Get initial metrics with admin authentication
+        response1 = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         content1 = response1.text
 
         # Extract initial counter value (sum across all label combinations)
@@ -325,8 +385,11 @@ class TestMetricsIncrements:
             headers={"Authorization": f"Bearer {test_user['token']}"}
         )
 
-        # Get updated metrics
-        response2 = client.get("/metrics")
+        # Get updated metrics with admin authentication
+        response2 = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         content2 = response2.text
 
         # Extract updated counter value (sum across all label combinations)
@@ -343,19 +406,22 @@ class TestMetricsIncrements:
 
 class TestMetricsAvailability:
     """Test that all expected metrics are available."""
-    
-    def test_all_metric_types_present(self, client):
+
+    def test_all_metric_types_present(self, client, admin_token):
         """Test that all major metric types are defined."""
-        response = client.get("/metrics")
+        response = client.get(
+            "/metrics",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
         content = response.text
-        
+
         # Check for different metric types
         expected_metrics = [
             "curlinator_http_requests_total",
             "curlinator_http_request_duration_seconds",
             "curlinator_app_info",
         ]
-        
+
         for metric in expected_metrics:
             assert metric in content, f"Expected metric {metric} not found in /metrics output"
 
