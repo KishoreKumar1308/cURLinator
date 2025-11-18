@@ -90,11 +90,11 @@ class UserResponse(BaseModel):
 
 class AuthResponse(BaseModel):
     """Response model for authentication endpoints."""
-    
+
     access_token: str = Field(..., description="JWT access token")
     token_type: str = Field(default="bearer", description="Token type")
     user: Dict = Field(..., description="User information")
-    
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -105,6 +105,73 @@ class AuthResponse(BaseModel):
                         "id": "123e4567-e89b-12d3-a456-426614174000",
                         "email": "user@example.com"
                     }
+                }
+            ]
+        }
+    }
+
+
+class ChangePasswordRequest(BaseModel):
+    """Request model for changing user password."""
+
+    current_password: str = Field(..., description="Current password for verification")
+    new_password: str = Field(
+        ...,
+        min_length=8,
+        description="New password (minimum 8 characters, must contain uppercase, lowercase, and digit)"
+    )
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        """
+        Validate new password strength requirements.
+
+        Password must:
+        - Be at least 8 characters long (enforced by Field min_length)
+        - Contain at least one uppercase letter
+        - Contain at least one lowercase letter
+        - Contain at least one digit
+
+        Args:
+            v: Password string to validate
+
+        Returns:
+            The validated password
+
+        Raises:
+            ValueError: If password doesn't meet strength requirements
+        """
+        if not any(c.isupper() for c in v):
+            raise ValueError('New password must contain at least one uppercase letter')
+        if not any(c.islower() for c in v):
+            raise ValueError('New password must contain at least one lowercase letter')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('New password must contain at least one digit')
+        return v
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "current_password": "OldPass123",
+                    "new_password": "NewSecurePass456"
+                }
+            ]
+        }
+    }
+
+
+class DeleteAccountRequest(BaseModel):
+    """Request model for deleting user account."""
+
+    password: str = Field(..., description="Current password for confirmation")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "password": "MyPassword123"
                 }
             ]
         }
