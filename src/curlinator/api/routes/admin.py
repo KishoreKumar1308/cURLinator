@@ -13,9 +13,11 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from pydantic import BaseModel, EmailStr, Field
+import chromadb
 
 from curlinator.api.database import get_db
 from curlinator.api.db.models import User, DocumentationCollection, ChatSession
+from curlinator.config import get_settings
 from curlinator.api.auth import get_admin_user, get_password_hash
 from curlinator.api.middleware import limiter
 from curlinator.api.error_codes import (
@@ -485,19 +487,23 @@ async def delete_user(
                 )
             )
 
-        # Delete user's collections from Chroma vector store
-        from curlinator.api.chroma_client import chroma_client
-
         collections = db.query(DocumentationCollection).filter(
             DocumentationCollection.owner_id == user.id
         ).all()
 
-        for collection in collections:
+        if collections:
             try:
-                chroma_client.delete_collection(name=collection.name)
-                log_adapter.info(f"Deleted Chroma collection: {collection.name}")
+                settings = get_settings()
+                chroma_client = chromadb.PersistentClient(path=settings.vector_db_path)
+
+                for collection in collections:
+                    try:
+                        chroma_client.delete_collection(name=collection.name)
+                        log_adapter.info(f"Deleted Chroma collection: {collection.name}")
+                    except Exception as e:
+                        log_adapter.warning(f"Failed to delete Chroma collection {collection.name}: {str(e)}")
             except Exception as e:
-                log_adapter.warning(f"Failed to delete Chroma collection {collection.name}: {str(e)}")
+                log_adapter.warning(f"Failed to connect to Chroma client: {str(e)}")
 
         # Delete user from database (cascade will handle related records)
         user_email = user.email
