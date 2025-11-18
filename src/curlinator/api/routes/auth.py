@@ -108,6 +108,7 @@ async def register(request: Request, body: RegisterRequest, db: Session = Depend
                 "id": user.id,
                 "email": user.email,
                 "is_active": user.is_active,
+                "role": user.role,
             }
         )
 
@@ -216,6 +217,7 @@ async def login(request: Request, body: LoginRequest, db: Session = Depends(get_
                 "id": user.id,
                 "email": user.email,
                 "is_active": user.is_active,
+                "role": user.role,
             }
         )
 
@@ -265,6 +267,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         "id": current_user.id,
         "email": current_user.email,
         "is_active": current_user.is_active,
+        "role": current_user.role,
         "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
     }
 
