@@ -1,7 +1,7 @@
 """Add crawl_jobs table for incremental crawling
 
 Revision ID: add_crawl_jobs_001
-Revises: <previous_revision>
+Revises: 61a08c281a85
 Create Date: 2025-11-19 10:00:00.000000
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'add_crawl_jobs_001'
-down_revision = None  # TODO: Update with actual previous revision
+down_revision = '61a08c281a85'
 branch_labels = None
 depends_on = None
 
