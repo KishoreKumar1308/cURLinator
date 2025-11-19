@@ -1,42 +1,27 @@
 """
-Crawl endpoint for documentation indexing.
+Crawl endpoint for documentation indexing with incremental batch processing.
 """
 
 import uuid
 import logging
-import asyncio
 from datetime import datetime, timezone
-from urllib.parse import urlparse
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, BackgroundTasks
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 
-from curlinator.api.models.crawl import CrawlRequest, CrawlResponse
+from curlinator.api.models.crawl import CrawlRequest, CrawlResponse, CrawlProgressResponse
 from curlinator.api.database import get_db
-from curlinator.api.db.models import User, DocumentationCollection, UserSettings
+from curlinator.api.db.models import User, UserSettings, CrawlJob, CrawlStatus
 from curlinator.api.auth import get_current_user
 from curlinator.api.utils.embeddings import get_embedding_model
 from curlinator.api.utils.validators import validate_crawl_request
 from curlinator.api.middleware import limiter
 from curlinator.api.error_codes import (
     create_error_response,
-    CRAWL_TIMEOUT,
-    CRAWL_NO_DOCUMENTS,
     CRAWL_FAILED,
-    DATABASE_INTEGRITY_ERROR,
     DATABASE_QUERY_FAILED
 )
-from curlinator.agents.documentation_agent import DocumentationAgent
-from curlinator.agents.chat_agent import ChatAgent
-from curlinator.api.metrics import (
-    crawl_operations_total,
-    crawl_duration_seconds,
-    crawl_pages_total,
-    crawl_pages_per_operation,
-    vectorstore_documents_indexed_total,
-    vectorstore_operations_total
-)
-import time
+from curlinator.api.services.incremental_crawler import execute_incremental_crawl, calculate_batch_size
 
 router = APIRouter(prefix="/api/v1", tags=["crawl"])
 logger = logging.getLogger(__name__)
@@ -50,43 +35,52 @@ CRAWL_TIMEOUT_SECONDS = 600  # 10 minutes
 async def crawl_documentation(
     request: Request,
     body: CrawlRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Crawl API documentation and create vector index.
+    Crawl API documentation with incremental batch processing and real-time indexing.
 
-    Requires authentication.
+    **NEW BEHAVIOR (Incremental Crawling):**
+    - Returns immediately with status="in_progress"
+    - Crawls and indexes in batches (10-30 pages per batch) in background
+    - Users can start querying after first batch (~10 seconds)
+    - Check progress at GET /api/v1/crawl/{crawl_id}/status
 
-    This endpoint:
-    1. Validates the URL and parameters
-    2. Uses DocumentationAgent to crawl the documentation (with timeout)
-    3. Creates a ChatAgent with the crawled documents
-    4. Saves collection to database with owner tracking
-    5. Returns a collection_name for future queries
+    **Workflow:**
+    1. Validates URL and parameters
+    2. Creates CrawlJob in database
+    3. Starts background crawl task
+    4. Returns immediately with crawl_id and collection_name
+    5. Background task crawls in batches and indexes incrementally
+    6. Users can query collection while crawl is still in progress
 
     Args:
         request: Starlette Request object (for rate limiting)
-        body: CrawlRequest with url, max_pages, max_depth
+        body: CrawlRequest with url, max_pages, max_depth, embedding_provider
+        background_tasks: FastAPI BackgroundTasks for async processing
         current_user: Authenticated user (from JWT token)
         db: Database session
 
     Returns:
-        CrawlResponse with crawl_id, status, pages_crawled, collection_name
+        CrawlResponse with:
+        - crawl_id: Unique identifier for this crawl
+        - status: "in_progress" (crawl running in background)
+        - pages_crawled: 0 (will be updated as crawl progresses)
+        - pages_indexed: 0 (will be updated as batches are indexed)
+        - collection_name: Chroma collection name for querying
+        - message: Instructions to check status endpoint
 
     Raises:
         HTTPException:
             - 422 if validation fails
-            - 400 if no documents found
-            - 408 if crawl times out
-            - 500 if unexpected error occurs
+            - 402 if free tier user tries to use API-based embeddings
+            - 500 if initialization fails
     """
     # Get correlation ID from request state
     correlation_id = getattr(request.state, 'correlation_id', 'N/A')
     log_adapter = logging.LoggerAdapter(logger, {'correlation_id': correlation_id})
-
-    crawl_id = None
-    collection_name = None
 
     try:
         # Validate request parameters
@@ -143,13 +137,10 @@ async def crawl_documentation(
                 )
 
         log_adapter.info(
-            f"Starting crawl: URL={body.url}, max_pages={body.max_pages}, "
+            f"Starting incremental crawl: URL={body.url}, max_pages={body.max_pages}, "
             f"max_depth={body.max_depth}, user={current_user.email}, "
             f"embedding_provider={body.embedding_provider}"
         )
-
-        # Start timer for crawl duration
-        crawl_start_time = time.time()
 
         # Get embedding model based on request
         try:
@@ -166,181 +157,90 @@ async def crawl_documentation(
                 )
             )
 
-        # Initialize DocumentationAgent
-        doc_agent = DocumentationAgent(
-            max_pages=body.max_pages,
-            max_depth=body.max_depth,
-            verbose=True,
-        )
+        # Calculate batch size for progress tracking
+        batch_size = calculate_batch_size(body.max_pages)
+        total_batches_estimate = (body.max_pages + batch_size - 1) // batch_size
 
-        # Execute crawl with timeout (async method)
+        # Create CrawlJob in database
         try:
-            documents = await asyncio.wait_for(
-                doc_agent.execute(str(body.url)),
-                timeout=CRAWL_TIMEOUT_SECONDS
-            )
-        except asyncio.TimeoutError:
-            logger.error(f"Crawl timed out after {CRAWL_TIMEOUT_SECONDS} seconds")
-            crawl_operations_total.labels(status="timeout").inc()
-            crawl_duration_seconds.observe(time.time() - crawl_start_time)
-            raise HTTPException(
-                status_code=408,
-                detail=create_error_response(
-                    error_code=CRAWL_TIMEOUT,
-                    message=f"Crawl operation timed out after {CRAWL_TIMEOUT_SECONDS // 60} minutes",
-                    suggestion="Try reducing max_pages or max_depth parameters, or crawl a smaller documentation site"
-                )
-            )
-        except Exception as e:
-            logger.error(f"Crawl execution failed: {str(e)}", exc_info=True)
-            crawl_operations_total.labels(status="failure").inc()
-            crawl_duration_seconds.observe(time.time() - crawl_start_time)
-            raise HTTPException(
-                status_code=400,
-                detail=create_error_response(
-                    error_code=CRAWL_FAILED,
-                    message=f"Failed to crawl documentation: {str(e)}",
-                    suggestion="Verify the URL is accessible and contains valid documentation"
-                )
-            )
-
-        if not documents:
-            crawl_operations_total.labels(status="failure").inc()
-            crawl_duration_seconds.observe(time.time() - crawl_start_time)
-            raise HTTPException(
-                status_code=400,
-                detail=create_error_response(
-                    error_code=CRAWL_NO_DOCUMENTS,
-                    message="The crawl completed but found no documents to index",
-                    suggestion="Verify the URL points to documentation pages with readable content"
-                )
-            )
-
-        # Track successful crawl
-        pages_crawled = len(documents)
-        logger.info(f"Crawled {pages_crawled} documents")
-        crawl_pages_total.labels(status="success").inc(pages_crawled)
-        crawl_pages_per_operation.observe(pages_crawled)
-
-        # Create ChatAgent with documents (builds index with specified embedding model)
-        try:
-            vectorstore_operations_total.labels(operation="index", status="in_progress").inc()
-
-            chat_agent = ChatAgent(
-                documents=documents,
+            crawl_job = CrawlJob(
+                crawl_id=crawl_id,
+                user_id=current_user.id,
+                collection_id=None,  # Will be set after first batch is indexed
                 collection_name=collection_name,
-                embed_model=embed_model,
-                verbose=True,
-            )
-
-            # Track successful indexing
-            vectorstore_documents_indexed_total.inc(pages_crawled)
-            vectorstore_operations_total.labels(operation="index", status="success").inc()
-            logger.info(f"Created collection: {collection_name} with {provider_name} embeddings")
-
-        except Exception as e:
-            logger.error(f"Failed to create vector index: {str(e)}", exc_info=True)
-            vectorstore_operations_total.labels(operation="index", status="failure").inc()
-            crawl_operations_total.labels(status="failure").inc()
-            crawl_duration_seconds.observe(time.time() - crawl_start_time)
-            raise HTTPException(
-                status_code=500,
-                detail=create_error_response(
-                    error_code=CRAWL_FAILED,
-                    message=f"Failed to create vector index: {str(e)}",
-                    suggestion="This may be a temporary issue. Please try again."
-                )
-            )
-
-        # Save collection to database with embedding metadata
-        try:
-            parsed_url = urlparse(str(body.url))
-            domain = parsed_url.netloc
-
-            collection = DocumentationCollection(
-                name=collection_name,
                 url=str(body.url),
-                domain=domain,
-                pages_crawled=len(documents),
-                owner_id=current_user.id,
-                is_public=False,
+                max_pages=body.max_pages,
+                max_depth=body.max_depth,
                 embedding_provider=provider_name,
                 embedding_model=model_name,
+                status=CrawlStatus.IN_PROGRESS,
+                pages_crawled=0,
+                pages_indexed=0,
+                current_batch=0,
+                total_batches_estimate=total_batches_estimate,
+                batch_size=batch_size,
+                started_at=datetime.now(timezone.utc),
             )
 
-            db.add(collection)
+            db.add(crawl_job)
             db.commit()
-            db.refresh(collection)
+            db.refresh(crawl_job)
 
-            logger.info(f"Saved collection to database: {collection.id}")
-            logger.info(f"Embedding metadata: {provider_name} / {model_name}")
+            log_adapter.info(f"Created CrawlJob: {crawl_id}, batch_size={batch_size}, estimated_batches={total_batches_estimate}")
 
-        except IntegrityError as e:
-            logger.error(f"Database integrity error: {str(e)}", exc_info=True)
-            db.rollback()
-
-            # Try to clean up the vector store collection
-            try:
-                import chromadb
-                from curlinator.config import get_settings
-                settings = get_settings()
-                chroma_client = chromadb.PersistentClient(path=settings.vector_db_path)
-                chroma_client.delete_collection(collection_name)
-                logger.info(f"Cleaned up vector store collection: {collection_name}")
-            except Exception as cleanup_error:
-                logger.warning(f"Failed to clean up vector store: {cleanup_error}")
-
-            raise HTTPException(
-                status_code=409,
-                detail=create_error_response(
-                    error_code=DATABASE_INTEGRITY_ERROR,
-                    message="A collection with this name already exists in the database",
-                    suggestion="This is an internal error. Please try again."
-                )
-            )
         except SQLAlchemyError as e:
-            logger.error(f"Database error: {str(e)}", exc_info=True)
+            logger.error(f"Failed to create CrawlJob: {str(e)}", exc_info=True)
             db.rollback()
-
-            # Try to clean up the vector store collection
-            try:
-                import chromadb
-                from curlinator.config import get_settings
-                settings = get_settings()
-                chroma_client = chromadb.PersistentClient(path=settings.vector_db_path)
-                chroma_client.delete_collection(collection_name)
-                logger.info(f"Cleaned up vector store collection: {collection_name}")
-            except Exception as cleanup_error:
-                logger.warning(f"Failed to clean up vector store: {cleanup_error}")
-
             raise HTTPException(
                 status_code=500,
                 detail=create_error_response(
                     error_code=DATABASE_QUERY_FAILED,
-                    message="Failed to save collection to database",
+                    message="Failed to create crawl job in database",
                     suggestion="This may be a temporary issue. Please try again."
                 )
             )
 
-        # Track successful crawl operation
-        crawl_duration = time.time() - crawl_start_time
-        crawl_duration_seconds.observe(crawl_duration)
-        crawl_operations_total.labels(status="success").inc()
+        # Create a session factory for background task
+        # Background tasks can't use the same session as the request
+        from curlinator.api.database import SessionLocal
 
+        def db_session_factory():
+            """Context manager for creating database sessions in background task."""
+            return SessionLocal()
+
+        # Start background crawl task
+        background_tasks.add_task(
+            execute_incremental_crawl,
+            crawl_id=crawl_id,
+            url=str(body.url),
+            max_pages=body.max_pages,
+            max_depth=body.max_depth,
+            collection_name=collection_name,
+            embed_model=embed_model,
+            provider_name=provider_name,
+            model_name=model_name,
+            user_id=current_user.id,
+            db_session_factory=db_session_factory,
+        )
+
+        log_adapter.info(f"Started background crawl task for {crawl_id}")
+
+        # Return immediately with in_progress status
         return CrawlResponse(
             crawl_id=crawl_id,
-            status="completed",
-            pages_crawled=len(documents),
+            status="in_progress",
+            pages_crawled=0,
+            pages_indexed=0,
             collection_name=collection_name,
-            message=f"Successfully crawled {len(documents)} pages"
+            message=f"Crawl started in background. Check status at GET /api/v1/crawl/{crawl_id}/status. You can start querying after the first batch is indexed (~10 seconds)."
         )
 
     except HTTPException:
         # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
-        # Catch any unexpected errors
-        logger.error(f"Unexpected error during crawl: {str(e)}", exc_info=True)
+        # Catch any unexpected errors during initialization
+        logger.error(f"Unexpected error during crawl initialization: {str(e)}", exc_info=True)
 
         # Rollback database transaction
         try:
@@ -348,24 +248,106 @@ async def crawl_documentation(
         except Exception as rollback_error:
             logger.error(f"Failed to rollback database: {rollback_error}")
 
-        # Try to clean up vector store if collection was created
-        if collection_name:
-            try:
-                import chromadb
-                from curlinator.config import get_settings
-                settings = get_settings()
-                chroma_client = chromadb.PersistentClient(path=settings.vector_db_path)
-                chroma_client.delete_collection(collection_name)
-                logger.info(f"Cleaned up vector store collection: {collection_name}")
-            except Exception as cleanup_error:
-                logger.warning(f"Failed to clean up vector store: {cleanup_error}")
-
         raise HTTPException(
             status_code=500,
             detail=create_error_response(
                 error_code=CRAWL_FAILED,
-                message=f"An unexpected error occurred: {str(e)}",
+                message=f"An unexpected error occurred during crawl initialization: {str(e)}",
                 suggestion="Please try again. If the problem persists, contact support."
             )
         )
 
+@router.get("/crawl/{crawl_id}/status", response_model=CrawlProgressResponse)
+async def get_crawl_status(
+    crawl_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get real-time progress of an incremental crawl job.
+
+    Returns detailed progress information including:
+    - Current status (in_progress, completed, failed, cancelled)
+    - Pages crawled and indexed
+    - Current batch and estimated total batches
+    - Estimated completion time
+    - Error message (if failed)
+
+    Args:
+        crawl_id: Unique crawl job identifier
+        current_user: Authenticated user (from JWT token)
+        db: Database session
+
+    Returns:
+        CrawlProgressResponse with detailed progress metrics
+
+    Raises:
+        HTTPException:
+            - 404 if crawl job not found or user doesn't have access
+            - 500 if database error occurs
+    """
+    try:
+        # Query crawl job and verify ownership
+        crawl_job = db.query(CrawlJob).filter(
+            CrawlJob.crawl_id == crawl_id,
+            CrawlJob.user_id == current_user.id
+        ).first()
+
+        if not crawl_job:
+            logger.warning(f"Crawl job not found: {crawl_id}")
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "error": "Crawl job not found",
+                    "message": f"Crawl job '{crawl_id}' not found or you don't have access to it",
+                    "suggestion": "Verify the crawl_id is correct and belongs to your account"
+                }
+            )
+
+        # Calculate progress percentage
+        percent_complete = 0.0
+        if crawl_job.total_batches_estimate and crawl_job.total_batches_estimate > 0:
+            percent_complete = (crawl_job.current_batch / crawl_job.total_batches_estimate) * 100
+
+        # Build progress response
+        return CrawlProgressResponse(
+            crawl_id=crawl_job.crawl_id,
+            collection_name=crawl_job.collection_name,
+            status=crawl_job.status.value,
+            progress={
+                "pages_crawled": crawl_job.pages_crawled,
+                "pages_indexed": crawl_job.pages_indexed,
+                "pages_total_estimate": crawl_job.max_pages,
+                "current_batch": crawl_job.current_batch,
+                "total_batches_estimate": crawl_job.total_batches_estimate,
+                "percent_complete": round(percent_complete, 1)
+            },
+            started_at=crawl_job.started_at,
+            updated_at=crawl_job.updated_at,
+            completed_at=crawl_job.completed_at,
+            estimated_completion_at=crawl_job.estimated_completion_at,
+            error_message=crawl_job.error_message
+        )
+
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        logger.error(f"Database error getting crawl status: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Database error",
+                "message": "Failed to retrieve crawl status from database",
+                "suggestion": "This may be a temporary issue. Please try again."
+            }
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error getting crawl status: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "Internal server error",
+                "message": f"An unexpected error occurred: {str(e)}",
+                "suggestion": "Please try again. If the problem persists, contact support."
+            }
+        )

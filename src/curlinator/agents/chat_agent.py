@@ -19,6 +19,8 @@ from llama_index.core.chat_engine import ContextChatEngine
 from llama_index.core.memory import ChatSummaryMemoryBuffer
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.retrievers.bm25 import BM25Retriever
+from llama_index.core import QueryBundle
+from llama_index.core.text_splitter import SentenceSplitter
 from Stemmer import Stemmer
 
 from curlinator.agents.base import BaseAgent
@@ -313,7 +315,6 @@ Now, answer the user's question using the provided API documentation."""
                     # Retrieve all nodes from vector store using a broad query
                     retriever = self.index.as_retriever(similarity_top_k=100)
                     # Get all nodes by querying with empty string or broad term
-                    from llama_index.core import QueryBundle
                     query_bundle = QueryBundle(query_str="")
                     retrieved_nodes = retriever.retrieve(query_bundle)
                     if retrieved_nodes:
@@ -323,7 +324,7 @@ Now, answer the user's question using the provided API documentation."""
                     self._log(f"⚠️  Could not retrieve nodes from vector store: {e}")
             # Try 3: Create from documents (fallback)
             if not nodes and self.documents:
-                from llama_index.core.node_parser import SentenceSplitter
+                
                 parser = SentenceSplitter()
                 nodes = parser.get_nodes_from_documents(self.documents)
                 self._log(f"Created {len(nodes)} nodes from documents")

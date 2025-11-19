@@ -3,7 +3,7 @@ Chat endpoint for querying indexed documentation.
 """
 
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -18,13 +18,14 @@ from curlinator.api.models.chat import (
 )
 from curlinator.api.database import get_db
 from curlinator.api.db.models import (
-    DocumentationCollection,
     User,
     ChatSession,
     ChatMessage as DBChatMessage,
     SharePermission,
     UserSettings,
     SystemConfig,
+    CrawlJob,
+    CrawlStatus,
 )
 from curlinator.api.auth import get_current_user
 from curlinator.api.utils.embeddings import get_embedding_model
@@ -155,6 +156,41 @@ async def chat(
         log_adapter.info(f"Found collection in database: {collection.name}")
         log_adapter.info(f"Embedding provider: {collection.embedding_provider}")
         log_adapter.info(f"Embedding model: {collection.embedding_model}")
+
+        # Check if collection is still being crawled/indexed
+        crawl_job = db.query(CrawlJob).filter(
+            CrawlJob.collection_name == body.collection_name
+        ).first()
+
+        if crawl_job and crawl_job.status == CrawlStatus.IN_PROGRESS:
+            # Check if any pages have been indexed yet
+            if crawl_job.pages_indexed == 0:
+                # No pages indexed yet - return 425 Too Early
+                log_adapter.warning(
+                    f"User attempted to query collection before first batch indexed: "
+                    f"{body.collection_name} (0/{crawl_job.pages_crawled} pages indexed)"
+                )
+                raise HTTPException(
+                    status_code=425,  # Too Early
+                    detail={
+                        "error": "COLLECTION_NOT_READY",
+                        "message": "Collection is still being crawled and no pages have been indexed yet.",
+                        "status": "in_progress",
+                        "crawl_id": crawl_job.crawl_id,
+                        "pages_crawled": crawl_job.pages_crawled,
+                        "pages_indexed": crawl_job.pages_indexed,
+                        "current_batch": crawl_job.current_batch,
+                        "total_batches_estimate": crawl_job.total_batches_estimate,
+                        "suggestion": f"Wait for the first batch to be indexed (~10 seconds). Check progress at GET /api/v1/crawl/{crawl_job.crawl_id}/status"
+                    }
+                )
+            else:
+                # Some pages indexed - allow querying with warning
+                log_adapter.info(
+                    f"Collection still indexing but {crawl_job.pages_indexed} pages available: "
+                    f"{body.collection_name} ({crawl_job.pages_indexed}/{crawl_job.pages_crawled} pages indexed)"
+                )
+                # Continue with query - user will get partial results
 
         # Get or create chat session
         chat_session = None
