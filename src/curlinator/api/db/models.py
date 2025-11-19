@@ -3,7 +3,7 @@ SQLAlchemy database models.
 """
 
 import uuid
-from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Text, Enum as SQLEnum, UniqueConstraint, ARRAY
+from sqlalchemy import Column, String, Integer, Boolean, DateTime, ForeignKey, Text, Enum as SQLEnum, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -237,7 +237,7 @@ class CrawlJob(Base):
 
     # Error tracking
     error_message = Column(Text, nullable=True)
-    failed_urls = Column(ARRAY(String), nullable=True)
+    failed_urls = Column(JSON, nullable=True)  # Stored as JSON array for SQLite compatibility
     retry_count = Column(Integer, default=0)
 
     # Timestamps

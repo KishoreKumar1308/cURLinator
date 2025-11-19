@@ -7,7 +7,6 @@ Create Date: 2025-11-19 10:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'add_crawl_jobs_001'
@@ -42,7 +41,7 @@ def upgrade():
         
         # Error tracking
         sa.Column('error_message', sa.Text(), nullable=True),
-        sa.Column('failed_urls', postgresql.ARRAY(sa.String()), nullable=True),
+        sa.Column('failed_urls', sa.JSON(), nullable=True),  # JSON for SQLite compatibility
         sa.Column('retry_count', sa.Integer(), default=0),
         
         # Timestamps
