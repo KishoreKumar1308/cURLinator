@@ -5,6 +5,7 @@ Crawl endpoint for documentation indexing.
 import uuid
 import logging
 import asyncio
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
@@ -12,7 +13,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from curlinator.api.models.crawl import CrawlRequest, CrawlResponse
 from curlinator.api.database import get_db
-from curlinator.api.db.models import User, DocumentationCollection
+from curlinator.api.db.models import User, DocumentationCollection, UserSettings
 from curlinator.api.auth import get_current_user
 from curlinator.api.utils.embeddings import get_embedding_model
 from curlinator.api.utils.validators import validate_crawl_request
@@ -97,6 +98,49 @@ async def crawl_documentation(
 
         crawl_id = str(uuid.uuid4())
         collection_name = f"crawl_{crawl_id}"
+
+        # Load user settings for freemium logic
+        user_settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()
+        if not user_settings:
+            # Create default settings if not exists
+            user_settings = UserSettings(
+                user_id=current_user.id,
+                preferred_embedding_provider="local",
+                default_max_pages=50,
+                default_max_depth=3,
+                free_messages_used=0,
+                free_messages_limit=10,
+                last_message_reset_date=datetime.now(timezone.utc),
+            )
+            db.add(user_settings)
+            db.commit()
+            db.refresh(user_settings)
+
+        # Check if user has any API key configured
+        has_api_key = bool(
+            user_settings.user_openai_api_key_encrypted or
+            user_settings.user_anthropic_api_key_encrypted or
+            user_settings.user_gemini_api_key_encrypted
+        )
+
+        # Enforce local embeddings for free tier users
+        if not has_api_key:
+            if body.embedding_provider.upper() != "LOCAL":
+                log_adapter.warning(f"Free tier user attempted to use {body.embedding_provider} embeddings")
+                raise HTTPException(
+                    status_code=402,
+                    detail={
+                        "error": "API-based embeddings require API key",
+                        "message": "Free tier users must use local embeddings. API-based embeddings (OpenAI, Gemini) require you to add your own API key.",
+                        "current_provider": body.embedding_provider,
+                        "allowed_provider": "local",
+                        "upgrade_options": {
+                            "byok": True,
+                            "paid_credits": False
+                        },
+                        "suggestion": "Set embedding_provider to 'local' or add your API key in Settings (PATCH /api/v1/settings) to use OpenAI or Gemini embeddings."
+                    }
+                )
 
         log_adapter.info(
             f"Starting crawl: URL={body.url}, max_pages={body.max_pages}, "

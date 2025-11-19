@@ -3,10 +3,16 @@
 import pytest
 import os
 import logging
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 # Set TESTING environment variable BEFORE any imports
 # This must be done before importing the app to disable rate limiting
 os.environ["TESTING"] = "true"
+os.environ["JWT_SECRET"] = "test-secret-key-for-testing-only"
+os.environ["API_KEY_ENCRYPTION_KEY"] = "WUclFDmhiJNfbBDocG1gWPkRMvpKABdZwdYqRxC3LTI="
 
 from llama_index.core import Settings
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -16,8 +22,22 @@ from llama_index.llms.gemini import Gemini
 
 from curlinator.config import get_settings
 from curlinator.api.utils.llm_validation import is_valid_api_key
+from curlinator.api.main import app
+from curlinator.api.database import Base, get_db
+from curlinator.api.db.models import User, DocumentationCollection
+from curlinator.api.auth import get_password_hash, create_access_token
 
 logger = logging.getLogger(__name__)
+
+# Create in-memory SQLite database for testing
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def _clear_settings_cache():
@@ -99,6 +119,78 @@ def setup_test_environment():
     # Cleanup
     if "TESTING" in os.environ:
         del os.environ["TESTING"]
+
+
+@pytest.fixture(scope="function")
+def db_session():
+    """Create a fresh database session for each test."""
+    Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+        Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(scope="function")
+def client(db_session):
+    """Create a test client with database override."""
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def test_user(db_session):
+    """Create a test user."""
+    user = User(
+        email="test@example.com",
+        hashed_password=get_password_hash("testpassword123"),
+        is_active=True,
+        role="user"
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+
+@pytest.fixture(scope="function")
+def test_user_id(test_user):
+    """Get test user ID."""
+    return test_user.id
+
+
+@pytest.fixture(scope="function")
+def auth_headers(test_user):
+    """Create authentication headers for test user."""
+    token = create_access_token(data={"sub": test_user.id})
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture(scope="function")
+def test_collection(db_session, test_user):
+    """Create a test collection."""
+    collection = DocumentationCollection(
+        name="test_collection",
+        url="https://docs.example.com",
+        domain="docs.example.com",
+        pages_crawled=10,
+        owner_id=test_user.id,
+        embedding_provider="local",
+        embedding_model="BAAI/bge-small-en-v1.5"
+    )
+    db_session.add(collection)
+    db_session.commit()
+    db_session.refresh(collection)
+    return collection
 
 
 def _has_valid_llm_api_key():

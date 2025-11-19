@@ -1,12 +1,8 @@
 """Prompt templates for AI agents"""
 
-from .documentation_agent_prompts import (
-    DOCUMENTATION_AGENT_SYSTEM_PROMPT,
-    DOCUMENTATION_AGENT_STATE_TEMPLATE,
-)
+# Note: DocumentationAgent no longer uses custom prompts.
+# It uses LlamaIndex's WholeSiteReader which doesn't require prompt templates.
+# ChatAgent prompts are now managed via admin endpoints and database configuration.
 
-__all__ = [
-    "DOCUMENTATION_AGENT_SYSTEM_PROMPT",
-    "DOCUMENTATION_AGENT_STATE_TEMPLATE",
-]
+__all__ = []
 
