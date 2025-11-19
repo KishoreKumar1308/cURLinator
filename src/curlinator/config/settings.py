@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     sentry_environment: Optional[str] = None  # Defaults to environment if not set
     sentry_traces_sample_rate: float = 0.1  # 10% of requests
 
+    # User API Key Encryption (Required for BYOK)
+    api_key_encryption_key: str = ""  # Fernet encryption key for user API keys
+
 
 @lru_cache
 def get_settings() -> Settings:

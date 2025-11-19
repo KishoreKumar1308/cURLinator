@@ -3,6 +3,7 @@ Chat endpoint for querying indexed documentation.
 """
 
 import logging
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -22,9 +23,12 @@ from curlinator.api.db.models import (
     ChatSession,
     ChatMessage as DBChatMessage,
     SharePermission,
+    UserSettings,
+    SystemConfig,
 )
 from curlinator.api.auth import get_current_user
 from curlinator.api.utils.embeddings import get_embedding_model
+from curlinator.api.utils.llm_factory import create_llm_from_user_settings
 from curlinator.api.middleware import limiter
 from curlinator.agents.chat_agent import ChatAgent
 from curlinator.api.routes.collections import get_accessible_collection
@@ -85,6 +89,60 @@ async def chat(
         log_adapter = logging.LoggerAdapter(logger, {'correlation_id': correlation_id})
 
         log_adapter.info(f"Chat query for collection: {body.collection_name}")
+
+        # Load user settings for freemium logic
+        user_settings = db.query(UserSettings).filter(UserSettings.user_id == current_user.id).first()
+        if not user_settings:
+            # Create default settings if not exists
+            user_settings = UserSettings(
+                user_id=current_user.id,
+                preferred_embedding_provider="local",
+                default_max_pages=50,
+                default_max_depth=3,
+                free_messages_used=0,
+                free_messages_limit=10,
+                last_message_reset_date=datetime.now(timezone.utc),
+            )
+            db.add(user_settings)
+            db.commit()
+            db.refresh(user_settings)
+
+        # Check if daily reset is needed
+        now = datetime.now(timezone.utc)
+        last_reset = user_settings.last_message_reset_date
+        if last_reset and (now.date() > last_reset.date()):
+            # Reset daily counter
+            user_settings.free_messages_used = 0
+            user_settings.last_message_reset_date = now
+            db.commit()
+            db.refresh(user_settings)
+            log_adapter.info("Daily free message counter reset")
+
+        # Check if user has any API key configured
+        has_api_key = bool(
+            user_settings.user_openai_api_key_encrypted or
+            user_settings.user_anthropic_api_key_encrypted or
+            user_settings.user_gemini_api_key_encrypted
+        )
+
+        # Enforce free message limit for users without API key
+        if not has_api_key:
+            if user_settings.free_messages_used >= user_settings.free_messages_limit:
+                log_adapter.warning(f"User {current_user.id} exceeded free message limit")
+                raise HTTPException(
+                    status_code=402,
+                    detail={
+                        "error": "Free message limit exceeded",
+                        "message": f"You've used all {user_settings.free_messages_limit} free messages for today. Please add your API key to continue using cURLinator.",
+                        "free_messages_used": user_settings.free_messages_used,
+                        "free_messages_limit": user_settings.free_messages_limit,
+                        "upgrade_options": {
+                            "byok": True,
+                            "paid_credits": False
+                        },
+                        "suggestion": "Add your OpenAI, Anthropic, or Gemini API key in Settings (PATCH /api/v1/settings) to get unlimited usage."
+                    }
+                )
 
         # Check if user has access to the collection (owner, shared with CHAT permission, or public)
         collection, user_permission = get_accessible_collection(
@@ -177,11 +235,41 @@ async def chat(
                 }
             )
 
+        # Create user-specific LLM if user has API key
+        user_llm = None
+        if has_api_key and user_settings.preferred_llm_provider:
+            user_llm = create_llm_from_user_settings(user_settings)
+            if user_llm:
+                log_adapter.info(f"Using user's {user_settings.preferred_llm_provider} LLM")
+            else:
+                log_adapter.warning("Failed to create user LLM, falling back to system LLM")
+
+        # Resolve system prompt (user custom → system-wide → hardcoded default)
+        resolved_prompt = None
+        if user_settings.custom_system_prompt:
+            # User has custom prompt (admin-assigned for A/B testing)
+            resolved_prompt = user_settings.custom_system_prompt
+            variant_label = f" (variant: {user_settings.prompt_variant_name})" if user_settings.prompt_variant_name else ""
+            log_adapter.info(f"Using custom prompt for user{variant_label}")
+        else:
+            # Check for system-wide prompt
+            system_prompt_config = db.query(SystemConfig).filter(
+                SystemConfig.config_key == "system_prompt"
+            ).first()
+            if system_prompt_config:
+                resolved_prompt = system_prompt_config.config_value
+                log_adapter.info("Using system-wide default prompt")
+            else:
+                # Will use ChatAgent's hardcoded default (resolved_prompt = None)
+                log_adapter.info("Using ChatAgent's hardcoded default prompt")
+
         # Load ChatAgent with existing collection and correct embedding model
         try:
             chat_agent = ChatAgent(
                 collection_name=body.collection_name,
                 embed_model=embed_model,
+                llm=user_llm,  # Use user's LLM if available, otherwise system LLM
+                system_prompt=resolved_prompt,  # Use resolved prompt
                 verbose=True,
             )
             log_adapter.info(f"Successfully loaded ChatAgent for collection: {body.collection_name}")
@@ -267,7 +355,12 @@ async def chat(
         db.add(assistant_message)
         chat_messages_total.labels(role="assistant").inc()
 
-        # Commit messages to database
+        # Increment free message counter for users without API key (atomic operation)
+        if not has_api_key:
+            user_settings.free_messages_used += 1
+            log_adapter.info(f"Free messages used: {user_settings.free_messages_used}/{user_settings.free_messages_limit}")
+
+        # Commit messages and counter update to database (atomic transaction)
         db.commit()
         log_adapter.info(f"Saved 2 messages to session {chat_session.id}")
 
