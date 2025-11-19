@@ -257,12 +257,6 @@ Contributions are welcome! Please:
 
 ---
 
-## 📄 License
-
-This project is licensed under the MIT License.
-
----
-
 ## 🙏 Acknowledgments
 
 Built with [LlamaIndex](https://www.llamaindex.ai/), [Chroma](https://www.trychroma.com/), [FastAPI](https://fastapi.tiangolo.com/), and [PostgreSQL](https://www.postgresql.org/).
