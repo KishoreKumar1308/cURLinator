@@ -26,9 +26,7 @@ cURLinator eliminates friction in API integration by providing a conversational 
 - **RAG-Powered Queries**: Hybrid retrieval (semantic + BM25) for accurate answers
 - **Conversation History**: Server-side session management with automatic summarization
 - **Multi-LLM Support**: Works with OpenAI, Anthropic, Google Gemini, or local models
-- **Freemium Model**: Free tier with local embeddings, premium features with BYOK (Bring Your Own Key)
 - **Collection Sharing**: Share API documentation collections with team members
-- **Production Ready**: Prometheus metrics, Sentry error tracking, comprehensive health checks
 
 ---
 
@@ -141,9 +139,7 @@ For detailed REST API documentation including all endpoints, request/response ex
 - **Collections**: `/api/v1/collections/*`
 - **Sessions**: `/api/v1/sessions/*`
 - **Sharing**: `/api/v1/collections/{name}/share`
-- **Admin**: `/api/v1/admin/*` (admin-only endpoints)
 - **Health**: `/health`
-- **Metrics**: `/metrics` (Prometheus format)
 
 Interactive API documentation is available at `http://localhost:8000/docs` when running the server.
 
@@ -167,7 +163,6 @@ pytest --cov=src/curlinator --cov-report=html
 
 cURLinator includes production-ready monitoring and observability:
 
-- **Prometheus Metrics** (`/metrics`) - HTTP requests, database queries, crawl operations, chat queries
 - **Sentry Error Tracking** - Real-time error monitoring and performance tracking
 - **Health Checks** (`/health`) - Database, Chroma, system resources, LLM API connectivity
 - **Structured Logging** - Correlation IDs, request tracing, audit logs
@@ -181,8 +176,6 @@ SENTRY_DSN=https://your-dsn@sentry.io/project-id
 # Prometheus scraping
 curl http://localhost:8000/metrics
 ```
-
-For detailed monitoring setup and Grafana dashboards, see the [API Documentation](docs/API_README.md#monitoring).
 
 ---
 
@@ -242,26 +235,6 @@ curlinator/
 ├── alembic/                 # Database migrations
 └── scripts/                 # Utility scripts
 ```
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with tests
-4. Run `pytest` and code quality tools
-5. Submit a Pull Request
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
----
 
 ## 🙏 Acknowledgments
 
