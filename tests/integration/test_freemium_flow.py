@@ -221,9 +221,9 @@ class TestFreemiumCrawlFlow:
             settings.user_openai_api_key_encrypted = None
             db_session.commit()
 
-        # Mock the crawl agents
-        with patch('curlinator.api.routes.crawl.DocumentationAgent') as mock_doc_agent, \
-             patch('curlinator.api.routes.crawl.ChatAgent') as mock_chat_agent:
+        # Mock the crawl agents (patch where they're actually imported and used)
+        with patch('curlinator.api.services.incremental_crawler.DocumentationAgent') as mock_doc_agent, \
+             patch('curlinator.api.services.incremental_crawler.ChatAgent') as mock_chat_agent:
             
             mock_doc_instance = MagicMock()
             mock_doc_instance.execute.return_value = [MagicMock()]  # Return mock documents
@@ -260,9 +260,9 @@ class TestFreemiumCrawlFlow:
         settings.user_openai_api_key_encrypted = encrypt_api_key("sk-test-key")
         db_session.commit()
 
-        # Mock the crawl agents
-        with patch('curlinator.api.routes.crawl.DocumentationAgent') as mock_doc_agent, \
-             patch('curlinator.api.routes.crawl.ChatAgent') as mock_chat_agent:
+        # Mock the crawl agents (patch where they're actually imported and used)
+        with patch('curlinator.api.services.incremental_crawler.DocumentationAgent') as mock_doc_agent, \
+             patch('curlinator.api.services.incremental_crawler.ChatAgent') as mock_chat_agent:
             
             mock_doc_instance = MagicMock()
             mock_doc_instance.execute.return_value = [MagicMock()]

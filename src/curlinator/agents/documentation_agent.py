@@ -15,7 +15,8 @@ Architecture:
 
 import logging
 import time
-from typing import List, Optional
+import warnings
+from typing import List, Optional, Tuple, Set, Dict, Any
 from urllib.parse import urlparse
 from datetime import datetime
 
@@ -26,6 +27,11 @@ from curlinator.agents.base import BaseAgent
 from curlinator.utils.openapi_detector import detect_openapi_spec, parse_openapi_to_documents
 from curlinator.utils.page_classifier import classify_page_type, extract_page_metadata
 from curlinator.utils.contextual_enrichment import enrich_document_with_context
+
+from selenium.common.exceptions import WebDriverException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 logger = logging.getLogger(__name__)
 
@@ -174,6 +180,212 @@ class DocumentationAgent(BaseAgent):
         else:
             self._log(f"✅ Returning {len(classified_docs)} documents (enrichment disabled)")
             return classified_docs
+
+    def initialize_crawl_state(self, base_url: str) -> Dict[str, Any]:
+        """
+        Initialize crawl state for batch crawling.
+
+        Args:
+            base_url: Base URL to start crawling from
+
+        Returns:
+            Dictionary containing:
+                - added_urls: Set of URLs already visited
+                - urls_to_visit: List of (url, depth) tuples to visit
+                - driver: WebDriver instance (reused across batches)
+                - prefix: URL prefix for filtering links
+        """
+        self._log(f"Initializing crawl state for: {base_url}")
+
+        # Extract domain prefix for URL filtering
+        parsed_url = urlparse(base_url)
+        prefix = f"{parsed_url.scheme}://{parsed_url.netloc}"
+
+        # Create WebDriver instance (will be reused across batches)
+        driver = self._create_webdriver()
+        time.sleep(2)  # Allow driver to stabilize
+
+        crawl_state = {
+            "added_urls": set(),
+            "urls_to_visit": [(base_url, 0)],  # (url, depth) tuples
+            "driver": driver,
+            "prefix": prefix,
+        }
+
+        self._log(f"Crawl state initialized (prefix={prefix})")
+        return crawl_state
+
+    async def execute_batch(
+        self,
+        base_url: str,
+        batch_size: int,
+        crawl_state: Dict[str, Any],
+    ) -> Tuple[List[Document], Dict[str, Any], bool]:
+        """
+        Crawl a single batch of pages and return enriched documents.
+
+        This method enables incremental crawling by processing only batch_size pages
+        per call while maintaining crawl state between calls. It preserves the
+        breadth-first search (BFS) algorithm from WholeSiteReader.
+
+        Args:
+            base_url: Base URL being crawled (for enrichment context)
+            batch_size: Maximum number of pages to crawl in this batch
+            crawl_state: State from previous batch containing:
+                - added_urls: Set of URLs already visited
+                - urls_to_visit: List of (url, depth) tuples to visit
+                - driver: WebDriver instance (reused across batches)
+                - prefix: URL prefix for filtering links
+
+        Returns:
+            Tuple of (documents, updated_crawl_state, is_complete):
+                - documents: List of enriched Document objects from this batch
+                - updated_crawl_state: Updated state for next batch
+                - is_complete: True if no more URLs to visit
+
+        Example:
+            >>> agent = DocumentationAgent(max_depth=3, max_pages=100)
+            >>> state = agent.initialize_crawl_state("https://docs.stripe.com/api")
+            >>>
+            >>> # Crawl first batch
+            >>> docs1, state, done = await agent.execute_batch("https://docs.stripe.com/api", 10, state)
+            >>> print(f"Batch 1: {len(docs1)} pages, complete={done}")
+            >>>
+            >>> # Crawl second batch
+            >>> docs2, state, done = await agent.execute_batch("https://docs.stripe.com/api", 10, state)
+            >>> print(f"Batch 2: {len(docs2)} pages, complete={done}")
+        """
+        
+        # Extract state
+        added_urls = crawl_state["added_urls"]
+        urls_to_visit = crawl_state["urls_to_visit"]
+        driver = crawl_state["driver"]
+        prefix = crawl_state["prefix"]
+
+        self._log(f"Starting batch crawl (batch_size={batch_size}, queue_size={len(urls_to_visit)})")
+
+        raw_documents = []
+        pages_crawled = 0
+
+        # Crawl up to batch_size pages
+        while urls_to_visit and pages_crawled < batch_size:
+            current_url, depth = urls_to_visit.pop(0)
+            self._log(f"Visiting [{pages_crawled + 1}/{batch_size}]: {current_url} (depth={depth})")
+
+            try:
+                # Check if driver is still alive
+                if not self._is_webdriver_alive(driver):
+                    self._log("⚠️  WebDriver died, restarting...")
+                    self._safe_quit_driver(driver)
+                    driver = self._create_webdriver()
+                    time.sleep(2)
+                    crawl_state["driver"] = driver
+
+                # Navigate to page
+                driver.get(current_url)
+
+                # Extract content using WholeSiteReader's method
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.TAG_NAME, "body"))
+                )
+                body_element = driver.find_element(By.TAG_NAME, "body")
+                page_content = body_element.text.strip()
+
+                added_urls.add(current_url)
+                pages_crawled += 1
+
+                # Extract links if we haven't reached max depth
+                next_depth = depth + 1
+                if next_depth <= self.max_depth:
+                    # Extract links using JavaScript (same as WholeSiteReader)
+                    js_script = """
+                        var links = [];
+                        var elements = document.getElementsByTagName('a');
+                        for (var i = 0; i < elements.length; i++) {
+                            var href = elements[i].href;
+                            if (href) {
+                                links.push(href);
+                            }
+                        }
+                        return links;
+                    """
+                    links = driver.execute_script(js_script)
+
+                    # Clean URLs (remove fragments)
+                    links = [link.split("#")[0] for link in links]
+
+                    # Filter new links
+                    new_links = [link for link in links if link not in added_urls]
+                    self._log(f"Found {len(new_links)} new potential links")
+
+                    # Add new links to queue
+                    for href in new_links:
+                        try:
+                            if href.startswith(prefix) and href not in added_urls:
+                                urls_to_visit.append((href, next_depth))
+                                added_urls.add(href)
+                        except Exception:
+                            continue
+
+                # Create document
+                doc = Document(text=page_content, extra_info={"URL": current_url})
+                raw_documents.append(doc)
+
+                # Add delay between pages
+                time.sleep(self.page_delay)
+
+            except WebDriverException as e:
+                self._log(f"⚠️  WebDriverException: {e}, restarting driver...")
+                self._safe_quit_driver(driver)
+                driver = self._create_webdriver()
+                time.sleep(2)
+                crawl_state["driver"] = driver
+
+            except Exception as e:
+                self._log(f"⚠️  Error crawling {current_url}: {e}, skipping...")
+                continue
+
+        self._log(f"Batch crawl complete: {len(raw_documents)} pages crawled")
+
+        # Check if crawl is complete
+        is_complete = len(urls_to_visit) == 0
+
+        # Update crawl state
+        crawl_state["added_urls"] = added_urls
+        crawl_state["urls_to_visit"] = urls_to_visit
+        crawl_state["driver"] = driver
+
+        # Process documents (classify and enrich)
+        if raw_documents:
+            self._log(f"Processing {len(raw_documents)} documents...")
+
+            # Classify pages
+            classified_docs = await self._classify_pages(raw_documents)
+
+            # Enrich documents (if enabled)
+            if self.enable_enrichment:
+                enriched_docs = await self._enrich_documents(classified_docs, base_url)
+                self._log(f"✅ Batch complete: {len(enriched_docs)} enriched documents")
+                return enriched_docs, crawl_state, is_complete
+            else:
+                self._log(f"✅ Batch complete: {len(classified_docs)} classified documents")
+                return classified_docs, crawl_state, is_complete
+        else:
+            self._log("⚠️  No documents in this batch")
+            return [], crawl_state, is_complete
+
+    def cleanup_crawl_state(self, crawl_state: Dict[str, Any]) -> None:
+        """
+        Clean up resources from crawl state (e.g., quit WebDriver).
+
+        Args:
+            crawl_state: Crawl state containing driver and other resources
+        """
+        driver = crawl_state.get("driver")
+        if driver:
+            self._log("Cleaning up WebDriver...")
+            self._safe_quit_driver(driver)
+            crawl_state["driver"] = None
 
     async def _detect_openapi(self, base_url: str) -> Optional[List[Document]]:
         """
@@ -398,7 +610,6 @@ class DocumentationAgent(BaseAgent):
                 # Initialize WholeSiteReader with custom driver
                 # Extract domain from base_url to use as prefix
                 # This allows crawling all pages under the domain, not just the exact path
-                from urllib.parse import urlparse
                 parsed_url = urlparse(base_url)
                 prefix = f"{parsed_url.scheme}://{parsed_url.netloc}"
 
@@ -445,10 +656,6 @@ class DocumentationAgent(BaseAgent):
                     except (AttributeError, TypeError):
                         pass
 
-                    # Real WholeSiteReader - implement custom crawl logic with max_pages limit
-                    from selenium.common.exceptions import WebDriverException
-                    import warnings
-
                     added_urls = set()
                     urls_to_visit = [(base_url, 0)]
                     documents = []
@@ -477,7 +684,6 @@ class DocumentationAgent(BaseAgent):
                                     except Exception:
                                         continue
 
-                            from llama_index.core import Document
                             doc = Document(text=page_content, extra_info={"URL": current_url})
                             if reader.uri_as_id:
                                 warnings.warn(
