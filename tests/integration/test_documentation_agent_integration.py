@@ -12,7 +12,7 @@ Usage:
     pytest tests/integration/test_documentation_agent_integration.py -v
 
     # Run specific test
-    pytest tests/integration/test_documentation_agent_integration.py::test_crawl_with_openapi_spec -v
+    pytest tests/integration/test_documentation_agent_integration.py::test_crawl_with_openapi_spec
 
     # Skip integration tests (for CI)
     pytest -m "not integration"

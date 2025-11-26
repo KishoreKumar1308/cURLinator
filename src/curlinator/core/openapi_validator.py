@@ -26,7 +26,10 @@ class ValidationResult:
         self.errors = errors or []
 
     def __repr__(self) -> str:
-        return f"ValidationResult(is_valid={self.is_valid}, version={self.version}, errors={len(self.errors)})"
+        return (
+            f"ValidationResult(is_valid={self.is_valid}, "
+            f"version={self.version}, errors={len(self.errors)})"
+        )
 
 
 def is_valid_openapi(spec: dict) -> bool:
@@ -228,7 +231,8 @@ def extract_api_info(spec: dict) -> dict[str, str]:
         Dict with title, version, description, base_url
 
     Examples:
-        >>> info = extract_api_info({"openapi": "3.0.0", "info": {"title": "My API", "version": "1.0"}})
+        >>> spec = {"openapi": "3.0.0", "info": {"title": "My API", "version": "1.0"}}
+        >>> info = extract_api_info(spec)
         >>> info["title"]
         'My API'
     """

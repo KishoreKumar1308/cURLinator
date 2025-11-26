@@ -66,7 +66,10 @@ async def _detect_from_swagger_ui(url: str) -> str | None:
             return spec_url
 
         # Pattern 3: const/var specUrl = "..."
-        pattern3 = r'(?:const|var|let)\s+(?:specUrl|definitionURL|spec_url)\s*=\s*["\']([^"\']+\.(?:json|yaml|yml))["\']'
+        pattern3 = (
+            r"(?:const|var|let)\s+(?:specUrl|definitionURL|spec_url)\s*=\s*"
+            r'["\']([^"\']+\.(?:json|yaml|yml))["\']'
+        )
         match = re.search(pattern3, html_content, re.IGNORECASE)
         if match:
             spec_url = match.group(1)

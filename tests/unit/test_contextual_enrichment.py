@@ -343,7 +343,7 @@ class TestEnrichDocumentsBatch:
         documents = [api_endpoint_document] * 15
 
         with caplog.at_level(logging.INFO):
-            enriched = enrich_documents_batch(documents, "API documentation", verbose=True)
+            enrich_documents_batch(documents, "API documentation", verbose=True)
 
         # Should log progress at 10 documents
         assert any("10/" in record.message for record in caplog.records)
@@ -494,7 +494,6 @@ class TestIntegrationScenarios:
 
         # Original text is about creating customers
         # Enriched text should add context about Stripe, API, endpoint type
-        original_lower = api_endpoint_document.text.lower()
         enriched_lower = enriched.text.lower()
 
         # Should add "stripe" context

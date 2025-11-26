@@ -24,7 +24,7 @@ from llama_index.core.schema import Document
 from llama_index.readers.web import WholeSiteReader
 from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
 
 from curlinator.agents.base import BaseAgent
@@ -120,7 +120,8 @@ class DocumentationAgent(BaseAgent):
         self.page_delay = page_delay
 
         self._log(
-            f"DocumentationAgent initialized (max_depth={max_depth}, max_pages={max_pages}, headless={headless}, page_delay={page_delay}s)"
+            f"DocumentationAgent initialized (max_depth={max_depth}, "
+            f"max_pages={max_pages}, headless={headless}, page_delay={page_delay}s)"
         )
 
     async def execute(self, base_url: str) -> list[Document]:
@@ -249,11 +250,12 @@ class DocumentationAgent(BaseAgent):
             >>> state = agent.initialize_crawl_state("https://docs.stripe.com/api")
             >>>
             >>> # Crawl first batch
-            >>> docs1, state, done = await agent.execute_batch("https://docs.stripe.com/api", 10, state)
+            >>> url = "https://docs.stripe.com/api"
+            >>> docs1, state, done = await agent.execute_batch(url, 10, state)
             >>> print(f"Batch 1: {len(docs1)} pages, complete={done}")
             >>>
             >>> # Crawl second batch
-            >>> docs2, state, done = await agent.execute_batch("https://docs.stripe.com/api", 10, state)
+            >>> docs2, state, done = await agent.execute_batch(url, 10, state)
             >>> print(f"Batch 2: {len(docs2)} pages, complete={done}")
         """
 
@@ -289,7 +291,7 @@ class DocumentationAgent(BaseAgent):
 
                 # Extract content using WholeSiteReader's method
                 WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.TAG_NAME, "body"))
+                    expected_conditions.presence_of_element_located((By.TAG_NAME, "body"))
                 )
                 body_element = driver.find_element(By.TAG_NAME, "body")
                 page_content = body_element.text.strip()
@@ -498,9 +500,12 @@ class DocumentationAgent(BaseAgent):
         prefs = {
             "profile.managed_default_content_settings.images": 2,  # Disable images
             "profile.default_content_setting_values.notifications": 2,  # Disable notifications
-            "profile.managed_default_content_settings.stylesheets": 1,  # Enable CSS (needed for some sites)
-            "profile.managed_default_content_settings.cookies": 1,  # Enable cookies (needed for some sites)
-            "profile.managed_default_content_settings.javascript": 1,  # Enable JS (needed for most sites)
+            # Enable CSS (needed for some sites)
+            "profile.managed_default_content_settings.stylesheets": 1,
+            # Enable cookies (needed for some sites)
+            "profile.managed_default_content_settings.cookies": 1,
+            # Enable JS (needed for most sites)
+            "profile.managed_default_content_settings.javascript": 1,
             "profile.managed_default_content_settings.plugins": 2,  # Disable plugins
             "profile.managed_default_content_settings.popups": 2,  # Disable popups
             "profile.managed_default_content_settings.geolocation": 2,  # Disable geolocation
@@ -594,7 +599,8 @@ class DocumentationAgent(BaseAgent):
             List of raw Document objects from crawl
         """
         self._log(
-            f"Crawling site with WholeSiteReader (max_depth={self.max_depth}, max_pages={self.max_pages})..."
+            f"Crawling site with WholeSiteReader "
+            f"(max_depth={self.max_depth}, max_pages={self.max_pages})..."
         )
 
         max_retries = 3
@@ -629,12 +635,14 @@ class DocumentationAgent(BaseAgent):
                     driver=driver,
                 )
 
-                # IMPORTANT: Override WholeSiteReader's restart_driver method to use our headless driver
-                # This prevents WholeSiteReader from creating a visible browser when it encounters errors
+                # IMPORTANT: Override WholeSiteReader's restart_driver method
+                # to use our headless driver. This prevents WholeSiteReader from
+                # creating a visible browser when it encounters errors
                 def custom_restart_driver():
                     """Custom restart_driver that maintains headless configuration"""
                     self._log(
-                        "⚠️  WholeSiteReader encountered error, restarting driver with headless mode..."
+                        "⚠️  WholeSiteReader encountered error, "
+                        "restarting driver with headless mode..."
                     )
                     if reader.driver:
                         try:
@@ -647,8 +655,9 @@ class DocumentationAgent(BaseAgent):
                 # Replace WholeSiteReader's restart_driver with our custom version
                 reader.restart_driver = custom_restart_driver
 
-                # IMPORTANT: Override WholeSiteReader's load_data method to respect max_pages limit
-                # WholeSiteReader doesn't have a max_pages parameter, so we need to stop crawling early
+                # IMPORTANT: Override WholeSiteReader's load_data method to
+                # respect max_pages limit. WholeSiteReader doesn't have a
+                # max_pages parameter, so we need to stop crawling early
                 original_load_data = reader.load_data
                 max_pages = self.max_pages
                 page_delay = self.page_delay
@@ -661,7 +670,8 @@ class DocumentationAgent(BaseAgent):
                         # Try to access reader.max_depth to see if it's a real WholeSiteReader
                         # If it's a MagicMock, this will return a MagicMock, not an int
                         if hasattr(reader.max_depth, "_mock_name"):
-                            # This is a mocked reader - just call original load_data and limit results
+                            # This is a mocked reader - just call original
+                            # load_data and limit results
                             docs = original_load_data(base_url)
                             return docs[:max_pages] if len(docs) > max_pages else docs
                     except (AttributeError, TypeError):
@@ -701,7 +711,8 @@ class DocumentationAgent(BaseAgent):
                             doc = Document(text=page_content, extra_info={"URL": current_url})
                             if reader.uri_as_id:
                                 warnings.warn(
-                                    "Setting the URI as the id of the document might break the code execution downstream and should be avoided."
+                                    "Setting the URI as the id of the document might "
+                                    "break the code execution downstream and should be avoided."
                                 )
                                 doc.id_ = current_url
                             documents.append(doc)

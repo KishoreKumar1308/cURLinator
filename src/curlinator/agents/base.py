@@ -48,7 +48,8 @@ class BaseAgent(ABC):
             if not validate_llm_config("openai", self.settings.openai_api_key):
                 logger.warning(
                     "⚠️  No valid OpenAI API key found. LLM will not be initialized. "
-                    "Set OPENAI_API_KEY environment variable with a real API key to enable LLM functionality."
+                    "Set OPENAI_API_KEY environment variable with a real API key to "
+                    "enable LLM functionality."
                 )
                 return None
             try:
@@ -70,7 +71,8 @@ class BaseAgent(ABC):
             if not validate_llm_config("anthropic", self.settings.anthropic_api_key):
                 logger.warning(
                     "⚠️  No valid Anthropic API key found. LLM will not be initialized. "
-                    "Set ANTHROPIC_API_KEY environment variable with a real API key to enable LLM functionality."
+                    "Set ANTHROPIC_API_KEY environment variable with a real API key to "
+                    "enable LLM functionality."
                 )
                 return None
             try:
@@ -90,7 +92,8 @@ class BaseAgent(ABC):
             if not validate_llm_config("gemini", self.settings.gemini_api_key):
                 logger.warning(
                     "⚠️  No valid Gemini API key found. LLM will not be initialized. "
-                    "Set GEMINI_API_KEY environment variable with a real API key to enable LLM functionality."
+                    "Set GEMINI_API_KEY environment variable with a real API key to "
+                    "enable LLM functionality."
                 )
                 return None
             try:

@@ -330,7 +330,7 @@ async def test_empty_documents_handling(
 
     # Arrange & Act
     with pytest.raises(Exception):  # Should raise some exception
-        agent = ChatAgent(
+        ChatAgent(
             documents=[],  # Empty documents
             collection_name=test_collection_name,
             persist_directory=test_persist_directory,
