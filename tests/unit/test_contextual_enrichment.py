@@ -24,6 +24,7 @@ from curlinator.utils.contextual_enrichment import (
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def api_endpoint_document():
     """Sample API endpoint document"""
@@ -35,7 +36,7 @@ def api_endpoint_document():
             "endpoint": "/v1/customers",
             "method": "POST",
             "title": "Create Customer",
-        }
+        },
     )
 
 
@@ -49,7 +50,7 @@ def api_overview_document():
             "type": "api_overview",
             "api_title": "Stripe API",
             "title": "API Overview",
-        }
+        },
     )
 
 
@@ -63,7 +64,7 @@ def authentication_document():
             "type": "authentication",
             "page_type": "authentication",
             "title": "Authentication",
-        }
+        },
     )
 
 
@@ -77,7 +78,7 @@ def guide_document():
             "type": "guide",
             "page_type": "guide",
             "title": "Pagination Guide",
-        }
+        },
     )
 
 
@@ -90,7 +91,7 @@ def tutorial_document():
             "url": "https://stripe.com/docs/tutorials/quickstart",
             "page_type": "tutorial",
             "title": "Quickstart Tutorial",
-        }
+        },
     )
 
 
@@ -98,10 +99,7 @@ def tutorial_document():
 def minimal_document():
     """Document with minimal metadata"""
     return Document(
-        text="Some content without much metadata.",
-        metadata={
-            "url": "https://example.com/page"
-        }
+        text="Some content without much metadata.", metadata={"url": "https://example.com/page"}
     )
 
 
@@ -109,15 +107,13 @@ def minimal_document():
 # Test enrich_document_with_context
 # ============================================================================
 
+
 class TestEnrichDocumentWithContext:
     """Tests for document enrichment with contextual prefixes"""
 
     def test_adds_contextual_prefix_to_text(self, api_endpoint_document):
         """Test adds contextual prefix to document text"""
-        enriched = enrich_document_with_context(
-            api_endpoint_document,
-            "Stripe API documentation"
-        )
+        enriched = enrich_document_with_context(api_endpoint_document, "Stripe API documentation")
 
         # Should have prefix + original text
         assert len(enriched.text) > len(api_endpoint_document.text)
@@ -126,10 +122,7 @@ class TestEnrichDocumentWithContext:
 
     def test_preserves_original_metadata(self, api_endpoint_document):
         """Test preserves all original metadata"""
-        enriched = enrich_document_with_context(
-            api_endpoint_document,
-            "Stripe API documentation"
-        )
+        enriched = enrich_document_with_context(api_endpoint_document, "Stripe API documentation")
 
         # All original metadata should be preserved
         assert enriched.metadata["url"] == api_endpoint_document.metadata["url"]
@@ -139,10 +132,7 @@ class TestEnrichDocumentWithContext:
 
     def test_adds_enrichment_metadata(self, api_endpoint_document):
         """Test adds enrichment metadata flags"""
-        enriched = enrich_document_with_context(
-            api_endpoint_document,
-            "Stripe API documentation"
-        )
+        enriched = enrich_document_with_context(api_endpoint_document, "Stripe API documentation")
 
         assert enriched.metadata["contextually_enriched"] is True
         assert "original_text_length" in enriched.metadata
@@ -152,10 +142,7 @@ class TestEnrichDocumentWithContext:
         """Test preserves document ID"""
         api_endpoint_document.id_ = "test-doc-123"
 
-        enriched = enrich_document_with_context(
-            api_endpoint_document,
-            "Stripe API documentation"
-        )
+        enriched = enrich_document_with_context(api_endpoint_document, "Stripe API documentation")
 
         assert enriched.id_ == "test-doc-123"
 
@@ -163,10 +150,7 @@ class TestEnrichDocumentWithContext:
         """Test preserves existing embedding"""
         api_endpoint_document.embedding = [0.1, 0.2, 0.3]
 
-        enriched = enrich_document_with_context(
-            api_endpoint_document,
-            "Stripe API documentation"
-        )
+        enriched = enrich_document_with_context(api_endpoint_document, "Stripe API documentation")
 
         assert enriched.embedding == [0.1, 0.2, 0.3]
 
@@ -175,10 +159,7 @@ class TestEnrichDocumentWithContext:
         api_endpoint_document.excluded_embed_metadata_keys = ["url"]
         api_endpoint_document.excluded_llm_metadata_keys = ["type"]
 
-        enriched = enrich_document_with_context(
-            api_endpoint_document,
-            "Stripe API documentation"
-        )
+        enriched = enrich_document_with_context(api_endpoint_document, "Stripe API documentation")
 
         assert enriched.excluded_embed_metadata_keys == ["url"]
         assert enriched.excluded_llm_metadata_keys == ["type"]
@@ -188,15 +169,13 @@ class TestEnrichDocumentWithContext:
 # Test generate_contextual_prefix
 # ============================================================================
 
+
 class TestGenerateContextualPrefix:
     """Tests for contextual prefix generation"""
 
     def test_generates_prefix_for_api_endpoint(self, api_endpoint_document):
         """Test generates appropriate prefix for API endpoint"""
-        prefix = generate_contextual_prefix(
-            api_endpoint_document,
-            "Stripe API documentation"
-        )
+        prefix = generate_contextual_prefix(api_endpoint_document, "Stripe API documentation")
 
         assert "Stripe API documentation" in prefix
         assert "api endpoint" in prefix.lower() or "endpoint" in prefix.lower()
@@ -205,10 +184,7 @@ class TestGenerateContextualPrefix:
 
     def test_generates_prefix_for_api_overview(self, api_overview_document):
         """Test generates appropriate prefix for API overview"""
-        prefix = generate_contextual_prefix(
-            api_overview_document,
-            "Stripe API documentation"
-        )
+        prefix = generate_contextual_prefix(api_overview_document, "Stripe API documentation")
 
         assert "Stripe API documentation" in prefix
         assert "overview" in prefix.lower()
@@ -216,52 +192,34 @@ class TestGenerateContextualPrefix:
 
     def test_generates_prefix_for_authentication(self, authentication_document):
         """Test generates appropriate prefix for authentication"""
-        prefix = generate_contextual_prefix(
-            authentication_document,
-            "Stripe API documentation"
-        )
+        prefix = generate_contextual_prefix(authentication_document, "Stripe API documentation")
 
         assert "Stripe API documentation" in prefix
         assert "authentication" in prefix.lower()
 
     def test_generates_prefix_for_guide(self, guide_document):
         """Test generates appropriate prefix for guide"""
-        prefix = generate_contextual_prefix(
-            guide_document,
-            "Stripe API documentation"
-        )
+        prefix = generate_contextual_prefix(guide_document, "Stripe API documentation")
 
         assert "Stripe API documentation" in prefix
         assert "guide" in prefix.lower()
 
     def test_generates_prefix_for_tutorial(self, tutorial_document):
         """Test generates appropriate prefix for tutorial"""
-        prefix = generate_contextual_prefix(
-            tutorial_document,
-            "Stripe API documentation"
-        )
+        prefix = generate_contextual_prefix(tutorial_document, "Stripe API documentation")
 
         assert "Stripe API documentation" in prefix
         assert "tutorial" in prefix.lower()
 
     def test_includes_title_when_available(self, api_endpoint_document):
         """Test includes title in prefix when available"""
-        prefix = generate_contextual_prefix(
-            api_endpoint_document,
-            "Stripe API documentation"
-        )
+        prefix = generate_contextual_prefix(api_endpoint_document, "Stripe API documentation")
 
         assert "Create Customer" in prefix
 
     def test_excludes_untitled_from_prefix(self):
         """Test excludes 'Untitled' from prefix"""
-        doc = Document(
-            text="Content",
-            metadata={
-                "url": "https://example.com",
-                "title": "Untitled"
-            }
-        )
+        doc = Document(text="Content", metadata={"url": "https://example.com", "title": "Untitled"})
 
         prefix = generate_contextual_prefix(doc, "API documentation")
 
@@ -269,20 +227,14 @@ class TestGenerateContextualPrefix:
 
     def test_includes_url_context(self, api_endpoint_document):
         """Test includes URL path context"""
-        prefix = generate_contextual_prefix(
-            api_endpoint_document,
-            "Stripe API documentation"
-        )
+        prefix = generate_contextual_prefix(api_endpoint_document, "Stripe API documentation")
 
         # Should include meaningful URL segments
         assert "customers" in prefix.lower() or "create" in prefix.lower()
 
     def test_handles_minimal_metadata(self, minimal_document):
         """Test handles document with minimal metadata"""
-        prefix = generate_contextual_prefix(
-            minimal_document,
-            "API documentation"
-        )
+        prefix = generate_contextual_prefix(minimal_document, "API documentation")
 
         # Should at least have base context
         assert "API documentation" in prefix
@@ -290,10 +242,7 @@ class TestGenerateContextualPrefix:
 
     def test_creates_coherent_sentence(self, api_endpoint_document):
         """Test creates grammatically coherent sentence"""
-        prefix = generate_contextual_prefix(
-            api_endpoint_document,
-            "Stripe API documentation"
-        )
+        prefix = generate_contextual_prefix(api_endpoint_document, "Stripe API documentation")
 
         # Should start with capital letter and end with period
         assert prefix[0].isupper()
@@ -308,6 +257,7 @@ class TestGenerateContextualPrefix:
 # Test enrich_documents_batch
 # ============================================================================
 
+
 class TestEnrichDocumentsBatch:
     """Tests for batch document enrichment"""
 
@@ -317,26 +267,16 @@ class TestEnrichDocumentsBatch:
         """Test enriches multiple documents in batch"""
         documents = [api_endpoint_document, guide_document, authentication_document]
 
-        enriched = enrich_documents_batch(
-            documents,
-            "Stripe API documentation",
-            verbose=False
-        )
+        enriched = enrich_documents_batch(documents, "Stripe API documentation", verbose=False)
 
         assert len(enriched) == 3
         assert all(doc.metadata.get("contextually_enriched") for doc in enriched)
 
-    def test_preserves_order(
-        self, api_endpoint_document, guide_document, authentication_document
-    ):
+    def test_preserves_order(self, api_endpoint_document, guide_document, authentication_document):
         """Test preserves document order"""
         documents = [api_endpoint_document, guide_document, authentication_document]
 
-        enriched = enrich_documents_batch(
-            documents,
-            "Stripe API documentation",
-            verbose=False
-        )
+        enriched = enrich_documents_batch(documents, "Stripe API documentation", verbose=False)
 
         # Check order is preserved by checking metadata
         assert enriched[0].metadata["type"] == "api_endpoint"
@@ -345,20 +285,14 @@ class TestEnrichDocumentsBatch:
 
     def test_handles_empty_list(self):
         """Test handles empty document list"""
-        enriched = enrich_documents_batch(
-            [],
-            "API documentation",
-            verbose=False
-        )
+        enriched = enrich_documents_batch([], "API documentation", verbose=False)
 
         assert enriched == []
 
     def test_handles_single_document(self, api_endpoint_document):
         """Test handles single document"""
         enriched = enrich_documents_batch(
-            [api_endpoint_document],
-            "Stripe API documentation",
-            verbose=False
+            [api_endpoint_document], "Stripe API documentation", verbose=False
         )
 
         assert len(enriched) == 1
@@ -385,12 +319,11 @@ class TestEnrichDocumentsBatch:
 
         documents = [api_endpoint_document, bad_document, guide_document]
 
-        with patch('curlinator.utils.contextual_enrichment.enrich_document_with_context', side_effect=mock_enrich):
-            enriched = enrich_documents_batch(
-                documents,
-                "API documentation",
-                verbose=False
-            )
+        with patch(
+            "curlinator.utils.contextual_enrichment.enrich_document_with_context",
+            side_effect=mock_enrich,
+        ):
+            enriched = enrich_documents_batch(documents, "API documentation", verbose=False)
 
         # Should have 3 documents (bad one kept as original)
         assert len(enriched) == 3
@@ -402,9 +335,7 @@ class TestEnrichDocumentsBatch:
         # Second (bad) document should not be enriched
         assert enriched[1].metadata.get("contextually_enriched") is not True
 
-    def test_verbose_mode_logs_progress(
-        self, api_endpoint_document, guide_document, caplog
-    ):
+    def test_verbose_mode_logs_progress(self, api_endpoint_document, guide_document, caplog):
         """Test verbose mode logs progress"""
         import logging
 
@@ -412,21 +343,20 @@ class TestEnrichDocumentsBatch:
         documents = [api_endpoint_document] * 15
 
         with caplog.at_level(logging.INFO):
-            enriched = enrich_documents_batch(
-                documents,
-                "API documentation",
-                verbose=True
-            )
+            enriched = enrich_documents_batch(documents, "API documentation", verbose=True)
 
         # Should log progress at 10 documents
         assert any("10/" in record.message for record in caplog.records)
         # Should log completion
-        assert any("Enriched" in record.message and "15" in record.message for record in caplog.records)
+        assert any(
+            "Enriched" in record.message and "15" in record.message for record in caplog.records
+        )
 
 
 # ============================================================================
 # Test Helper Functions
 # ============================================================================
+
 
 class TestHelperFunctions:
     """Tests for helper functions"""
@@ -451,10 +381,7 @@ class TestHelperFunctions:
 
     def test_get_endpoint_context_with_method_and_endpoint(self):
         """Test _get_endpoint_context with both method and endpoint"""
-        metadata = {
-            "method": "POST",
-            "endpoint": "/v1/customers"
-        }
+        metadata = {"method": "POST", "endpoint": "/v1/customers"}
 
         result = _get_endpoint_context(metadata)
 
@@ -464,9 +391,7 @@ class TestHelperFunctions:
 
     def test_get_endpoint_context_with_endpoint_only(self):
         """Test _get_endpoint_context with endpoint only"""
-        metadata = {
-            "endpoint": "/v1/customers"
-        }
+        metadata = {"endpoint": "/v1/customers"}
 
         result = _get_endpoint_context(metadata)
 
@@ -475,9 +400,7 @@ class TestHelperFunctions:
 
     def test_get_endpoint_context_returns_none_when_missing(self):
         """Test _get_endpoint_context returns None when endpoint missing"""
-        metadata = {
-            "method": "POST"
-        }
+        metadata = {"method": "POST"}
 
         result = _get_endpoint_context(metadata)
 
@@ -561,15 +484,13 @@ class TestHelperFunctions:
 # Test Integration Scenarios
 # ============================================================================
 
+
 class TestIntegrationScenarios:
     """Tests for real-world integration scenarios"""
 
     def test_enrichment_improves_context_for_retrieval(self, api_endpoint_document):
         """Test enrichment adds context that would improve retrieval"""
-        enriched = enrich_document_with_context(
-            api_endpoint_document,
-            "Stripe API documentation"
-        )
+        enriched = enrich_document_with_context(api_endpoint_document, "Stripe API documentation")
 
         # Original text is about creating customers
         # Enriched text should add context about Stripe, API, endpoint type
@@ -589,18 +510,9 @@ class TestIntegrationScenarios:
         self, api_endpoint_document, guide_document, authentication_document
     ):
         """Test different document types get appropriately different context"""
-        endpoint_enriched = enrich_document_with_context(
-            api_endpoint_document,
-            "Stripe API"
-        )
-        guide_enriched = enrich_document_with_context(
-            guide_document,
-            "Stripe API"
-        )
-        auth_enriched = enrich_document_with_context(
-            authentication_document,
-            "Stripe API"
-        )
+        endpoint_enriched = enrich_document_with_context(api_endpoint_document, "Stripe API")
+        guide_enriched = enrich_document_with_context(guide_document, "Stripe API")
+        auth_enriched = enrich_document_with_context(authentication_document, "Stripe API")
 
         # Each should have different context
         endpoint_prefix = endpoint_enriched.text.split("\n\n")[0]
@@ -619,19 +531,12 @@ class TestIntegrationScenarios:
 
     def test_enrichment_is_idempotent(self, api_endpoint_document):
         """Test enriching an already enriched document doesn't break"""
-        first_enrichment = enrich_document_with_context(
-            api_endpoint_document,
-            "Stripe API"
-        )
+        first_enrichment = enrich_document_with_context(api_endpoint_document, "Stripe API")
 
         # Enrich again
-        second_enrichment = enrich_document_with_context(
-            first_enrichment,
-            "Stripe API"
-        )
+        second_enrichment = enrich_document_with_context(first_enrichment, "Stripe API")
 
         # Should still be valid document
         assert isinstance(second_enrichment, Document)
         assert len(second_enrichment.text) > 0
         assert second_enrichment.metadata["contextually_enriched"] is True
-

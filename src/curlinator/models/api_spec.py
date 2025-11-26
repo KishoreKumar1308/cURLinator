@@ -73,4 +73,3 @@ class APISpecification(BaseModel):
     auth_methods: list[AuthMethod] = Field(default_factory=list)
     endpoints: list[APIEndpoint] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
-

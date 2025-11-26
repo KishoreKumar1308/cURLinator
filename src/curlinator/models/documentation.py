@@ -185,4 +185,3 @@ class DocumentationSource(BaseModel):
 
         self.completeness_score = min(score, 1.0)
         return self.completeness_score
-

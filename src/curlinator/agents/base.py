@@ -78,7 +78,9 @@ class BaseAgent(ABC):
                     model=self.settings.default_model_anthropic,
                     api_key=self.settings.anthropic_api_key,
                 )
-                logger.info(f"✅ Initialized Anthropic LLM: {self.settings.default_model_anthropic}")
+                logger.info(
+                    f"✅ Initialized Anthropic LLM: {self.settings.default_model_anthropic}"
+                )
                 return llm
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Anthropic LLM: {e}")
@@ -115,4 +117,3 @@ class BaseAgent(ABC):
         """Log message if verbose mode is enabled"""
         if self.verbose:
             print(f"[{self.__class__.__name__}] {message}")
-

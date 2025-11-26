@@ -6,18 +6,18 @@ from urllib.parse import urljoin, urlparse, urlunparse
 def normalize_url(url: str) -> str:
     """
     Normalize a URL by standardizing format.
-    
+
     - Ensures https:// scheme if no scheme provided
     - Removes trailing slashes
     - Removes fragment identifiers
     - Lowercases domain
-    
+
     Args:
         url: URL to normalize
-        
+
     Returns:
         Normalized URL string
-        
+
     Examples:
         >>> normalize_url("example.com/docs/")
         "https://example.com/docs"
@@ -38,14 +38,16 @@ def normalize_url(url: str) -> str:
     path = parsed.path.rstrip("/") if parsed.path != "/" else ""
 
     # Rebuild without fragment and query (for base URLs)
-    normalized = urlunparse((
-        scheme,
-        netloc,
-        path,
-        "",  # params
-        parsed.query,
-        ""   # fragment
-    ))
+    normalized = urlunparse(
+        (
+            scheme,
+            netloc,
+            path,
+            "",  # params
+            parsed.query,
+            "",  # fragment
+        )
+    )
 
     return normalized
 
@@ -53,13 +55,13 @@ def normalize_url(url: str) -> str:
 def is_valid_url(url: str) -> bool:
     """
     Check if a URL is valid.
-    
+
     Args:
         url: URL to validate
-        
+
     Returns:
         True if URL has valid scheme and netloc
-        
+
     Examples:
         >>> is_valid_url("https://example.com")
         True
@@ -76,13 +78,13 @@ def is_valid_url(url: str) -> bool:
 def guess_openapi_paths(base_url: str) -> list[str]:
     """
     Generate common OpenAPI/Swagger specification paths.
-    
+
     Args:
         base_url: Base URL of the API documentation
-        
+
     Returns:
         List of possible OpenAPI spec URLs to try
-        
+
     Examples:
         >>> guess_openapi_paths("https://api.example.com")
         ['https://api.example.com/openapi.json', ...]
@@ -111,13 +113,13 @@ def guess_openapi_paths(base_url: str) -> list[str]:
 def extract_domain(url: str) -> str:
     """
     Extract the domain (netloc) from a URL.
-    
+
     Args:
         url: URL to extract domain from
-        
+
     Returns:
         Domain string (scheme + netloc)
-        
+
     Examples:
         >>> extract_domain("https://api.example.com/docs/endpoint")
         "https://api.example.com"
@@ -129,15 +131,15 @@ def extract_domain(url: str) -> str:
 def is_documentation_url(url: str) -> bool:
     """
     Check if a URL looks like documentation.
-    
+
     Uses heuristics to identify documentation URLs based on common patterns.
-    
+
     Args:
         url: URL to check
-        
+
     Returns:
         True if URL appears to be documentation
-        
+
     Examples:
         >>> is_documentation_url("https://api.example.com/docs")
         True
@@ -169,16 +171,16 @@ def is_documentation_url(url: str) -> bool:
 def build_full_url(base_url: str, path: str) -> str:
     """
     Build a full URL from base URL and relative path.
-    
+
     Handles various path formats (absolute, relative, with/without leading slash).
-    
+
     Args:
         base_url: Base URL
         path: Path to append (can be relative or absolute)
-        
+
     Returns:
         Complete URL
-        
+
     Examples:
         >>> build_full_url("https://example.com", "/docs/api")
         "https://example.com/docs/api"
@@ -195,14 +197,14 @@ def build_full_url(base_url: str, path: str) -> str:
 def is_same_domain(url1: str, url2: str) -> bool:
     """
     Check if two URLs are from the same domain.
-    
+
     Args:
         url1: First URL
         url2: Second URL
-        
+
     Returns:
         True if both URLs have the same domain
-        
+
     Examples:
         >>> is_same_domain("https://api.example.com/v1", "https://api.example.com/v2")
         True
@@ -220,15 +222,15 @@ def is_same_domain(url1: str, url2: str) -> bool:
 def get_base_path(url: str) -> str:
     """
     Get the base path from a URL (path without last segment).
-    
+
     Useful for finding parent documentation pages.
-    
+
     Args:
         url: URL to extract base path from
-        
+
     Returns:
         URL with base path
-        
+
     Examples:
         >>> get_base_path("https://example.com/docs/api/users")
         "https://example.com/docs/api"
@@ -243,27 +245,20 @@ def get_base_path(url: str) -> str:
     else:
         base_path = ""
 
-    return urlunparse((
-        parsed.scheme,
-        parsed.netloc,
-        base_path,
-        "",
-        "",
-        ""
-    ))
+    return urlunparse((parsed.scheme, parsed.netloc, base_path, "", "", ""))
 
 
 def is_external_url(base_url: str, target_url: str) -> bool:
     """
     Check if target URL is external to base URL domain.
-    
+
     Args:
         base_url: Reference URL
         target_url: URL to check
-        
+
     Returns:
         True if target is external to base domain
-        
+
     Examples:
         >>> is_external_url("https://example.com", "https://other.com")
         True

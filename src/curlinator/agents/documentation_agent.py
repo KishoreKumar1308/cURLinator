@@ -119,7 +119,9 @@ class DocumentationAgent(BaseAgent):
         self.headless = headless
         self.page_delay = page_delay
 
-        self._log(f"DocumentationAgent initialized (max_depth={max_depth}, max_pages={max_pages}, headless={headless}, page_delay={page_delay}s)")
+        self._log(
+            f"DocumentationAgent initialized (max_depth={max_depth}, max_pages={max_pages}, headless={headless}, page_delay={page_delay}s)"
+        )
 
     async def execute(self, base_url: str) -> list[Document]:
         """
@@ -261,7 +263,9 @@ class DocumentationAgent(BaseAgent):
         driver = crawl_state["driver"]
         prefix = crawl_state["prefix"]
 
-        self._log(f"Starting batch crawl (batch_size={batch_size}, queue_size={len(urls_to_visit)})")
+        self._log(
+            f"Starting batch crawl (batch_size={batch_size}, queue_size={len(urls_to_visit)})"
+        )
 
         raw_documents = []
         pages_crawled = 0
@@ -449,7 +453,9 @@ class DocumentationAgent(BaseAgent):
             chromedriver_path = chromedriver_autoinstaller.install()
         except PermissionError:
             # Fallback: Install to current working directory (writable by non-root user)
-            self._log("⚠️  Permission denied for default ChromeDriver location, using writable cache...")
+            self._log(
+                "⚠️  Permission denied for default ChromeDriver location, using writable cache..."
+            )
             chromedriver_path = chromedriver_autoinstaller.install(cwd=True)
 
         # Configure Chrome options with stability improvements
@@ -469,7 +475,9 @@ class DocumentationAgent(BaseAgent):
 
         # Common options for both modes
         options.add_argument("--disable-blink-features=AutomationControlled")  # Avoid detection
-        options.add_argument("--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
+        options.add_argument(
+            "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+        )
 
         # Stability and resource management options
         options.add_argument("--disable-extensions")  # Disable extensions
@@ -484,7 +492,7 @@ class DocumentationAgent(BaseAgent):
         options.add_argument("--js-flags=--max-old-space-size=1024")
 
         # Page load strategy - wait for DOM but not all resources
-        options.page_load_strategy = 'normal'  # Wait for DOM ready (changed from 'eager')
+        options.page_load_strategy = "normal"  # Wait for DOM ready (changed from 'eager')
 
         # Set preferences to reduce resource usage
         prefs = {
@@ -585,7 +593,9 @@ class DocumentationAgent(BaseAgent):
         Returns:
             List of raw Document objects from crawl
         """
-        self._log(f"Crawling site with WholeSiteReader (max_depth={self.max_depth}, max_pages={self.max_pages})...")
+        self._log(
+            f"Crawling site with WholeSiteReader (max_depth={self.max_depth}, max_pages={self.max_pages})..."
+        )
 
         max_retries = 3
         retry_count = 0
@@ -623,7 +633,9 @@ class DocumentationAgent(BaseAgent):
                 # This prevents WholeSiteReader from creating a visible browser when it encounters errors
                 def custom_restart_driver():
                     """Custom restart_driver that maintains headless configuration"""
-                    self._log("⚠️  WholeSiteReader encountered error, restarting driver with headless mode...")
+                    self._log(
+                        "⚠️  WholeSiteReader encountered error, restarting driver with headless mode..."
+                    )
                     if reader.driver:
                         try:
                             reader.driver.quit()
@@ -648,7 +660,7 @@ class DocumentationAgent(BaseAgent):
                     try:
                         # Try to access reader.max_depth to see if it's a real WholeSiteReader
                         # If it's a MagicMock, this will return a MagicMock, not an int
-                        if hasattr(reader.max_depth, '_mock_name'):
+                        if hasattr(reader.max_depth, "_mock_name"):
                             # This is a mocked reader - just call original load_data and limit results
                             docs = original_load_data(base_url)
                             return docs[:max_pages] if len(docs) > max_pages else docs
@@ -677,7 +689,10 @@ class DocumentationAgent(BaseAgent):
 
                                 for href in links:
                                     try:
-                                        if href.startswith(reader.prefix) and href not in added_urls:
+                                        if (
+                                            href.startswith(reader.prefix)
+                                            and href not in added_urls
+                                        ):
                                             urls_to_visit.append((href, next_depth))
                                             added_urls.add(href)
                                     except Exception:
@@ -751,7 +766,9 @@ class DocumentationAgent(BaseAgent):
                 if retry_count < max_retries:
                     # Exponential backoff: 5s, 10s, 20s
                     wait_time = 5 * (2 ** (retry_count - 1))
-                    self._log(f"Retrying in {wait_time}s... (attempt {retry_count + 1}/{max_retries})")
+                    self._log(
+                        f"Retrying in {wait_time}s... (attempt {retry_count + 1}/{max_retries})"
+                    )
                     time.sleep(wait_time)
                 else:
                     self._log(f"❌ Max retries ({max_retries}) exceeded, giving up")
@@ -807,13 +824,15 @@ class DocumentationAgent(BaseAgent):
                 )
 
                 # Update document metadata
-                doc.metadata.update({
-                    "page_type": page_type,
-                    "title": metadata.get("title", "Untitled"),
-                    "description": metadata.get("description", ""),
-                    "headings": metadata.get("headings", []),
-                    "classified_at": datetime.now().isoformat(),
-                })
+                doc.metadata.update(
+                    {
+                        "page_type": page_type,
+                        "title": metadata.get("title", "Untitled"),
+                        "description": metadata.get("description", ""),
+                        "headings": metadata.get("headings", []),
+                        "classified_at": datetime.now().isoformat(),
+                    }
+                )
 
                 classified_docs.append(doc)
 

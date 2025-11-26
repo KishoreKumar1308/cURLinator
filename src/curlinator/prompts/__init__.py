@@ -5,4 +5,3 @@
 # ChatAgent prompts are now managed via admin endpoints and database configuration.
 
 __all__ = []
-

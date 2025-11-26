@@ -31,6 +31,7 @@ pytestmark = pytest.mark.integration
 # Test: OpenAPI Detection and Fast Path
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_crawl_with_openapi_spec():
     """Test crawling a site with OpenAPI spec (fast path)"""
@@ -52,7 +53,7 @@ async def test_crawl_with_openapi_spec():
 
     # Check that OpenAPI spec was detected (documents have 'type' metadata)
     # OpenAPI documents have 'type' field like 'api_overview', 'api_endpoint', etc.
-    openapi_docs = [doc for doc in documents if 'type' in doc.metadata]
+    openapi_docs = [doc for doc in documents if "type" in doc.metadata]
     assert len(openapi_docs) > 0, "Should have OpenAPI-sourced documents with 'type' metadata"
 
     # Check document structure
@@ -60,19 +61,20 @@ async def test_crawl_with_openapi_spec():
         assert isinstance(doc, Document), "Should return Document objects"
         assert doc.text, "Document should have text content"
         # OpenAPI documents have 'source' (spec URL) and 'type' fields
-        assert 'source' in doc.metadata, "Should have source in metadata"
-        assert 'type' in doc.metadata, "Should have type in metadata"
+        assert "source" in doc.metadata, "Should have source in metadata"
+        assert "type" in doc.metadata, "Should have type in metadata"
 
     # Check for API endpoint documents
-    endpoint_docs = [doc for doc in documents if doc.metadata.get('type') == 'api_endpoint']
+    endpoint_docs = [doc for doc in documents if doc.metadata.get("type") == "api_endpoint"]
     assert len(endpoint_docs) > 0, "Should have API endpoint documents"
 
     # Check endpoint metadata
     for doc in endpoint_docs[:3]:
-        assert 'method' in doc.metadata, "Endpoint should have HTTP method"
-        assert 'endpoint' in doc.metadata, "Endpoint should have path"
-        assert doc.metadata['method'] in ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], \
+        assert "method" in doc.metadata, "Endpoint should have HTTP method"
+        assert "endpoint" in doc.metadata, "Endpoint should have path"
+        assert doc.metadata["method"] in ["GET", "POST", "PUT", "DELETE", "PATCH"], (
             "Should have valid HTTP method"
+        )
 
 
 @pytest.mark.asyncio
@@ -91,22 +93,23 @@ async def test_openapi_detection_with_swagger_ui():
     documents = await agent.execute("https://petstore3.swagger.io")
 
     # Assert - Check that OpenAPI spec was detected
-    openapi_docs = [doc for doc in documents if 'type' in doc.metadata]
+    openapi_docs = [doc for doc in documents if "type" in doc.metadata]
     assert len(openapi_docs) > 0, "Should detect OpenAPI spec from Swagger UI"
 
     # Check for API overview document
-    overview_docs = [doc for doc in documents if doc.metadata.get('type') == 'api_overview']
+    overview_docs = [doc for doc in documents if doc.metadata.get("type") == "api_overview"]
     assert len(overview_docs) > 0, "Should have API overview document"
 
     # Check overview metadata
     overview = overview_docs[0]
-    assert 'api_title' in overview.metadata, "Overview should have api_title"
-    assert 'api_version' in overview.metadata, "Overview should have api_version"
+    assert "api_title" in overview.metadata, "Overview should have api_title"
+    assert "api_version" in overview.metadata, "Overview should have api_version"
 
 
 # ============================================================================
 # Test: Full Crawl Path (No OpenAPI)
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_crawl_without_openapi_spec():
@@ -128,7 +131,7 @@ async def test_crawl_without_openapi_spec():
 
     # Check that documents are from crawl (have page_type), not OpenAPI (have type)
     # Crawled documents have 'page_type', OpenAPI documents have 'type'
-    crawl_docs = [doc for doc in documents if 'page_type' in doc.metadata]
+    crawl_docs = [doc for doc in documents if "page_type" in doc.metadata]
     assert len(crawl_docs) > 0, "Should have crawl-sourced documents with page_type"
 
     # Check document structure
@@ -136,14 +139,17 @@ async def test_crawl_without_openapi_spec():
         assert isinstance(doc, Document), "Should return Document objects"
         assert doc.text, "Document should have text content"
         # WholeSiteReader uses 'URL' (uppercase), page_classifier adds 'url' (lowercase)
-        assert 'url' in doc.metadata or 'URL' in doc.metadata, "Crawled document should have URL in metadata"
-        assert 'page_type' in doc.metadata, "Crawled document should have page_type in metadata"
-        assert 'title' in doc.metadata, "Crawled document should have title in metadata"
+        assert "url" in doc.metadata or "URL" in doc.metadata, (
+            "Crawled document should have URL in metadata"
+        )
+        assert "page_type" in doc.metadata, "Crawled document should have page_type in metadata"
+        assert "title" in doc.metadata, "Crawled document should have title in metadata"
 
 
 # ============================================================================
 # Test: Contextual Enrichment
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_contextual_enrichment_enabled():
@@ -161,7 +167,7 @@ async def test_contextual_enrichment_enabled():
     documents = await agent.execute("https://jsonplaceholder.typicode.com")
 
     # Assert
-    enriched_docs = [doc for doc in documents if doc.metadata.get('contextually_enriched')]
+    enriched_docs = [doc for doc in documents if doc.metadata.get("contextually_enriched")]
     assert len(enriched_docs) > 0, "Should have enriched documents when crawling"
 
     # Check that enriched documents have context prefix
@@ -186,13 +192,14 @@ async def test_contextual_enrichment_disabled():
     documents = await agent.execute("https://jsonplaceholder.typicode.com")
 
     # Assert
-    enriched_docs = [doc for doc in documents if doc.metadata.get('contextually_enriched')]
+    enriched_docs = [doc for doc in documents if doc.metadata.get("contextually_enriched")]
     assert len(enriched_docs) == 0, "Should have no enriched documents when disabled"
 
 
 # ============================================================================
 # Test: Page Classification
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_page_classification_accuracy():
@@ -211,21 +218,23 @@ async def test_page_classification_accuracy():
 
     # Assert - Check for expected document types
     # OpenAPI documents use 'type' field, crawled documents use 'page_type'
-    doc_types = set(doc.metadata.get('type') or doc.metadata.get('page_type') for doc in documents)
+    doc_types = set(doc.metadata.get("type") or doc.metadata.get("page_type") for doc in documents)
 
     # Should have at least api_endpoint type
-    assert 'api_endpoint' in doc_types or 'api_reference' in doc_types, \
+    assert "api_endpoint" in doc_types or "api_reference" in doc_types, (
         f"Should classify API endpoint pages. Found types: {doc_types}"
+    )
 
     # All documents should have a type or page_type
     for doc in documents:
-        has_type = 'type' in doc.metadata or 'page_type' in doc.metadata
+        has_type = "type" in doc.metadata or "page_type" in doc.metadata
         assert has_type, "All documents should have type or page_type"
 
 
 # ============================================================================
 # Test: Configuration Parameters
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_max_pages_limit_respected():
@@ -246,8 +255,9 @@ async def test_max_pages_limit_respected():
     # Assert
     # Note: OpenAPI detection bypasses max_pages, so we use a site without OpenAPI
     # The actual number may be less than max_pages if site is small
-    assert len(documents) <= max_pages + 5, \
+    assert len(documents) <= max_pages + 5, (
         f"Should respect max_pages limit (got {len(documents)}, max {max_pages})"
+    )
 
 
 @pytest.mark.asyncio
@@ -272,6 +282,7 @@ async def test_headless_mode_works():
 # ============================================================================
 # Test: Error Handling
 # ============================================================================
+
 
 @pytest.mark.asyncio
 async def test_invalid_url_handling():
@@ -311,4 +322,3 @@ async def test_malformed_url_handling():
     # Assert - Should handle gracefully and return empty list
     assert isinstance(documents, list), "Should return a list"
     assert len(documents) == 0, "Should return empty list for malformed URL"
-

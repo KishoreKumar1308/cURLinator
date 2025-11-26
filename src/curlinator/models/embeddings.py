@@ -10,4 +10,3 @@ class EmbeddingProvider(str, Enum):
     OPENAI = "openai"  # OpenAI text-embedding-3-small (fast, costs money)
     GEMINI = "gemini"  # Google Gemini gemini-embedding-001 (fast, costs money)
     AUTO = "auto"  # Automatically select based on available API keys
-

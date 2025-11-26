@@ -18,23 +18,23 @@ logger = logging.getLogger(__name__)
 def enrich_document_with_context(document: Document, site_context: str) -> Document:
     """
     Add contextual prefix to document text before embedding.
-    
+
     This improves retrieval accuracy by providing context about where the
     document came from and what it's about. The original text is preserved
     and the context is prepended.
-    
+
     Based on Anthropic's "Contextual Retrieval" approach which showed:
     - 35% reduction in retrieval failures with contextual embeddings
     - 49% reduction when combined with BM25 hybrid search
-    
+
     Args:
         document: LlamaIndex Document to enrich
         site_context: Overall context about the documentation site
                      (e.g., "Stripe API documentation")
-        
+
     Returns:
         New Document with contextual prefix added to text
-        
+
     Example:
         >>> doc = Document(text="Create a customer...", metadata={"url": "..."})
         >>> enriched = enrich_document_with_context(doc, "Stripe API")
@@ -66,17 +66,17 @@ def enrich_document_with_context(document: Document, site_context: str) -> Docum
 def generate_contextual_prefix(document: Document, site_context: str) -> str:
     """
     Generate contextual prefix based on document metadata.
-    
+
     Creates a concise context statement that helps the embedding model
     understand where this content came from and what it's about.
-    
+
     Args:
         document: Document to generate context for
         site_context: Overall site context (e.g., "Stripe API documentation")
-        
+
     Returns:
         Contextual prefix string
-        
+
     Example:
         >>> doc = Document(
         ...     text="...",
@@ -217,23 +217,21 @@ def _get_url_context(url: str) -> str | None:
 
 
 def enrich_documents_batch(
-    documents: list[Document],
-    site_context: str,
-    verbose: bool = False
+    documents: list[Document], site_context: str, verbose: bool = False
 ) -> list[Document]:
     """
     Enrich multiple documents with contextual prefixes.
-    
+
     Convenience function for batch processing.
-    
+
     Args:
         documents: List of documents to enrich
         site_context: Overall site context
         verbose: Whether to log progress
-        
+
     Returns:
         List of enriched documents
-        
+
     Example:
         >>> docs = [doc1, doc2, doc3]
         >>> enriched = enrich_documents_batch(docs, "Stripe API", verbose=True)
@@ -258,4 +256,3 @@ def enrich_documents_batch(
         logger.info(f"✅ Enriched {len(enriched_documents)}/{len(documents)} documents")
 
     return enriched_documents
-

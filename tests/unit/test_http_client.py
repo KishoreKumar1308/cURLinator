@@ -105,9 +105,7 @@ class TestHTTPClientHead:
     """Tests for HEAD requests"""
 
     @pytest.mark.asyncio
-    async def test_head_returns_true_for_existing_url(
-        self, http_client: HTTPClient
-    ) -> None:
+    async def test_head_returns_true_for_existing_url(self, http_client: HTTPClient) -> None:
         """Test HEAD request returns True for existing URL"""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.is_success = True
@@ -122,9 +120,7 @@ class TestHTTPClientHead:
             assert result is True
 
     @pytest.mark.asyncio
-    async def test_head_returns_false_for_nonexistent_url(
-        self, http_client: HTTPClient
-    ) -> None:
+    async def test_head_returns_false_for_nonexistent_url(self, http_client: HTTPClient) -> None:
         """Test HEAD request returns False for non-existent URL"""
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
@@ -229,9 +225,7 @@ class TestHTTPClientFetchJson:
             assert "info" in data
 
     @pytest.mark.asyncio
-    async def test_fetch_json_handles_invalid_json(
-        self, http_client: HTTPClient
-    ) -> None:
+    async def test_fetch_json_handles_invalid_json(self, http_client: HTTPClient) -> None:
         """Test fetch_json handles invalid JSON gracefully"""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.status_code = 200
@@ -252,9 +246,7 @@ class TestHTTPClientGetContentType:
     """Tests for get_content_type method"""
 
     @pytest.mark.asyncio
-    async def test_get_content_type_returns_header(
-        self, http_client: HTTPClient
-    ) -> None:
+    async def test_get_content_type_returns_header(self, http_client: HTTPClient) -> None:
         """Test get_content_type returns content-type header"""
         mock_response = MagicMock(spec=httpx.Response)
         mock_response.headers = {"content-type": "application/json"}
@@ -269,9 +261,7 @@ class TestHTTPClientGetContentType:
             assert content_type == "application/json"
 
     @pytest.mark.asyncio
-    async def test_get_content_type_returns_none_on_error(
-        self, http_client: HTTPClient
-    ) -> None:
+    async def test_get_content_type_returns_none_on_error(self, http_client: HTTPClient) -> None:
         """Test get_content_type returns None on error"""
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
@@ -312,4 +302,3 @@ class TestHTTPClientIsReachable:
 
             result = await http_client.is_reachable("https://unreachable.com")
             assert result is False
-

@@ -50,7 +50,7 @@ async def _detect_from_swagger_ui(url: str) -> str | None:
         if match:
             spec_url = match.group(1)
             # Make absolute URL if relative
-            if not spec_url.startswith(('http://', 'https://')):
+            if not spec_url.startswith(("http://", "https://")):
                 spec_url = urljoin(url, spec_url)
             logger.info(f"🔍 Found spec URL in Swagger UI: {spec_url}")
             return spec_url
@@ -60,7 +60,7 @@ async def _detect_from_swagger_ui(url: str) -> str | None:
         match = re.search(pattern2, html_content, re.IGNORECASE)
         if match:
             spec_url = match.group(1)
-            if not spec_url.startswith(('http://', 'https://')):
+            if not spec_url.startswith(("http://", "https://")):
                 spec_url = urljoin(url, spec_url)
             logger.info(f"🔍 Found spec URL in Swagger UI: {spec_url}")
             return spec_url
@@ -70,7 +70,7 @@ async def _detect_from_swagger_ui(url: str) -> str | None:
         match = re.search(pattern3, html_content, re.IGNORECASE)
         if match:
             spec_url = match.group(1)
-            if not spec_url.startswith(('http://', 'https://')):
+            if not spec_url.startswith(("http://", "https://")):
                 spec_url = urljoin(url, spec_url)
             logger.info(f"🔍 Found spec URL in Swagger UI: {spec_url}")
             return spec_url
@@ -203,10 +203,10 @@ async def detect_openapi_spec(url: str) -> str | None:
 def _is_valid_openapi_spec(spec_data: Any) -> bool:
     """
     Validate if data is a valid OpenAPI/Swagger specification.
-    
+
     Args:
         spec_data: Parsed JSON/YAML data
-        
+
     Returns:
         True if valid OpenAPI/Swagger spec, False otherwise
     """
@@ -231,23 +231,23 @@ def _is_valid_openapi_spec(spec_data: Any) -> bool:
 async def parse_openapi_to_documents(spec_url: str) -> list[Document]:
     """
     Parse OpenAPI specification and convert to LlamaIndex Document objects.
-    
+
     Creates separate documents for:
     - API overview (title, description, version)
     - Each endpoint (path + method combination)
     - Authentication schemes
     - Data models/schemas
-    
+
     Args:
         spec_url: URL of the OpenAPI specification
-        
+
     Returns:
         List of LlamaIndex Document objects with metadata
-        
+
     Raises:
         httpx.HTTPError: If spec cannot be fetched
         ValueError: If spec is invalid or cannot be parsed
-        
+
     Example:
         >>> documents = await parse_openapi_to_documents("https://api.stripe.com/openapi.json")
         >>> print(f"Created {len(documents)} documents from OpenAPI spec")
@@ -308,12 +308,12 @@ def _create_overview_document(spec_data: dict, spec_url: str, version: str) -> D
 
     text = f"""API Overview
 
-Title: {info.get('title', 'Unknown API')}
-Version: {info.get('version', 'Unknown')}
+Title: {info.get("title", "Unknown API")}
+Version: {info.get("version", "Unknown")}
 OpenAPI Version: {version}
 
 Description:
-{info.get('description', 'No description available')}
+{info.get("description", "No description available")}
 
 Base URL: {_get_base_url(spec_data)}
 """
@@ -331,7 +331,7 @@ Base URL: {_get_base_url(spec_data)}
             "api_title": info.get("title", "Unknown API"),
             "api_version": info.get("version", "Unknown"),
             "openapi_version": version,
-        }
+        },
     )
 
 
@@ -353,10 +353,10 @@ def _create_endpoint_documents(
             # Build endpoint documentation text
             text = f"""Endpoint: {method.upper()} {path}
 
-Summary: {operation.get('summary', 'No summary')}
+Summary: {operation.get("summary", "No summary")}
 
 Description:
-{operation.get('description', 'No description available')}
+{operation.get("description", "No description available")}
 """
 
             # Add parameters
@@ -387,17 +387,19 @@ Description:
             tags = operation.get("tags", [])
             tags_str = ", ".join(tags) if tags else ""
 
-            documents.append(Document(
-                text=text,
-                metadata={
-                    "source": spec_url,
-                    "type": "api_endpoint",
-                    "endpoint": path,
-                    "method": method.upper(),
-                    "operation_id": operation.get("operationId", f"{method}_{path}"),
-                    "tags": tags_str,  # Store as comma-separated string
-                }
-            ))
+            documents.append(
+                Document(
+                    text=text,
+                    metadata={
+                        "source": spec_url,
+                        "type": "api_endpoint",
+                        "endpoint": path,
+                        "method": method.upper(),
+                        "operation_id": operation.get("operationId", f"{method}_{path}"),
+                        "tags": tags_str,  # Store as comma-separated string
+                    },
+                )
+            )
 
     return documents
 
@@ -430,7 +432,7 @@ def _create_auth_document(spec_data: dict, spec_url: str, is_openapi_3: bool) ->
         metadata={
             "source": spec_url,
             "type": "authentication",
-        }
+        },
     )
 
 
@@ -457,4 +459,3 @@ def _get_base_url(spec_data: dict) -> str:
         return f"{schemes[0]}://{host}{base_path}"
 
     return "Unknown"
-

@@ -47,4 +47,3 @@ __all__ = [
     "generate_contextual_prefix",
     "enrich_documents_batch",
 ]
-

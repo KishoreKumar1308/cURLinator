@@ -27,8 +27,7 @@ def setup_test_environment():
     # Configure local embedding model to avoid API dependencies
     # This runs once for the entire test session
     Settings.embed_model = HuggingFaceEmbedding(
-        model_name="BAAI/bge-small-en-v1.5",
-        cache_folder="./data/models"
+        model_name="BAAI/bge-small-en-v1.5", cache_folder="./data/models"
     )
 
     # Configure LLM if a VALID API key is available
@@ -44,7 +43,7 @@ def setup_test_environment():
             Settings.llm = OpenAI(
                 model=settings.default_model_openai,
                 api_key=settings.openai_api_key,
-                api_base=settings.openai_api_base
+                api_base=settings.openai_api_base,
             )
             llm_configured = True
             # Override default provider for tests to use OpenAI
@@ -58,14 +57,15 @@ def setup_test_environment():
     if not llm_configured and is_valid_api_key(settings.anthropic_api_key, "anthropic"):
         try:
             Settings.llm = Anthropic(
-                model=settings.default_model_anthropic,
-                api_key=settings.anthropic_api_key
+                model=settings.default_model_anthropic, api_key=settings.anthropic_api_key
             )
             llm_configured = True
             # Override default provider for tests to use Anthropic
             os.environ["DEFAULT_LLM_PROVIDER"] = "anthropic"
             _clear_settings_cache()  # Clear cache to reload settings with new provider
-            logger.info(f"✅ Configured Anthropic LLM for tests: {settings.default_model_anthropic}")
+            logger.info(
+                f"✅ Configured Anthropic LLM for tests: {settings.default_model_anthropic}"
+            )
         except Exception as e:
             logger.warning(f"Failed to initialize Anthropic LLM: {e}")
 
@@ -73,8 +73,7 @@ def setup_test_environment():
     if not llm_configured and is_valid_api_key(settings.gemini_api_key, "gemini"):
         try:
             Settings.llm = Gemini(
-                model=settings.default_model_gemini,
-                api_key=settings.gemini_api_key
+                model=settings.default_model_gemini, api_key=settings.gemini_api_key
             )
             llm_configured = True
             # Override default provider for tests to use Gemini
@@ -104,9 +103,9 @@ def _has_valid_llm_api_key():
 
     settings = get_settings()
     has_key = bool(
-        is_valid_api_key(settings.openai_api_key, "openai") or
-        is_valid_api_key(settings.anthropic_api_key, "anthropic") or
-        is_valid_api_key(settings.gemini_api_key, "gemini")
+        is_valid_api_key(settings.openai_api_key, "openai")
+        or is_valid_api_key(settings.anthropic_api_key, "anthropic")
+        or is_valid_api_key(settings.gemini_api_key, "gemini")
     )
 
     return has_key
@@ -122,6 +121,5 @@ def check_api_key():
 requires_llm = pytest.mark.skipif(
     not _has_valid_llm_api_key(),
     reason="Requires valid LLM API key (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY). "
-           "Skipping in CI to avoid API costs and rate limits. Run locally with valid API key to test."
+    "Skipping in CI to avoid API costs and rate limits. Run locally with valid API key to test.",
 )
-

@@ -338,11 +338,7 @@ class TestHasAuthentication:
         """Test detection of OpenAPI 3.x security schemes"""
         spec = {
             "openapi": "3.0.0",
-            "components": {
-                "securitySchemes": {
-                    "bearerAuth": {"type": "http", "scheme": "bearer"}
-                }
-            },
+            "components": {"securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}}},
         }
         assert has_authentication(spec) is True
 
@@ -385,9 +381,7 @@ class TestGetSpecSummary:
             "paths": {
                 "/users": {"get": {}, "post": {}},
             },
-            "components": {
-                "securitySchemes": {"apiKey": {"type": "apiKey"}}
-            },
+            "components": {"securitySchemes": {"apiKey": {"type": "apiKey"}}},
         }
         summary = get_spec_summary(spec)
 
@@ -432,4 +426,3 @@ class TestGetSpecSummary:
 
         for key in expected_keys:
             assert key in summary
-

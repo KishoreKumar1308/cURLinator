@@ -43,13 +43,13 @@ pytestmark = [pytest.mark.integration, requires_llm]
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture(scope="module")
 def setup_embedding_model():
     """Set up local embedding model for tests"""
     # Use local embedding model to avoid API dependencies
     Settings.embed_model = HuggingFaceEmbedding(
-        model_name="BAAI/bge-small-en-v1.5",
-        cache_folder="./data/models"
+        model_name="BAAI/bge-small-en-v1.5", cache_folder="./data/models"
     )
     yield
     # Cleanup is automatic
@@ -61,8 +61,8 @@ def sample_api_documents():
     return [
         Document(
             text="POST /users - Create a new user. Requires authentication. "
-                 "Request body should include: name (string), email (string), password (string). "
-                 "Returns: User object with id, name, email, created_at.",
+            "Request body should include: name (string), email (string), password (string). "
+            "Returns: User object with id, name, email, created_at.",
             metadata={
                 "url": "https://api.example.com/docs/users",
                 "title": "Create User",
@@ -72,12 +72,12 @@ def sample_api_documents():
                 "method": "POST",
                 "endpoint": "/users",
                 "tags": "users, authentication",
-            }
+            },
         ),
         Document(
             text="GET /users/{id} - Get user by ID. Requires authentication. "
-                 "Path parameters: id (integer) - User ID. "
-                 "Returns: User object with id, name, email, created_at.",
+            "Path parameters: id (integer) - User ID. "
+            "Returns: User object with id, name, email, created_at.",
             metadata={
                 "url": "https://api.example.com/docs/users",
                 "title": "Get User",
@@ -87,23 +87,23 @@ def sample_api_documents():
                 "method": "GET",
                 "endpoint": "/users/{id}",
                 "tags": "users",
-            }
+            },
         ),
         Document(
             text="Authentication: Use Bearer token authentication. "
-                 "Include the token in the Authorization header: Authorization: Bearer YOUR_TOKEN. "
-                 "Tokens can be obtained from POST /auth/login endpoint.",
+            "Include the token in the Authorization header: Authorization: Bearer YOUR_TOKEN. "
+            "Tokens can be obtained from POST /auth/login endpoint.",
             metadata={
                 "url": "https://api.example.com/docs/auth",
                 "title": "Authentication Guide",
                 "page_type": "authentication",
                 "source": "crawl",
-            }
+            },
         ),
         Document(
             text="API Overview: Welcome to the Example API. "
-                 "Base URL: https://api.example.com/v1. "
-                 "All endpoints require authentication unless specified otherwise.",
+            "Base URL: https://api.example.com/v1. "
+            "All endpoints require authentication unless specified otherwise.",
             metadata={
                 "url": "https://api.example.com/docs",
                 "title": "API Overview",
@@ -112,7 +112,7 @@ def sample_api_documents():
                 "type": "api_overview",
                 "version": "1.0.0",
                 "base_url": "https://api.example.com/v1",
-            }
+            },
         ),
     ]
 
@@ -121,6 +121,7 @@ def sample_api_documents():
 def test_collection_name():
     """Generate unique collection name for each test"""
     import uuid
+
     return f"test_chat_agent_{uuid.uuid4().hex[:8]}"
 
 
@@ -139,12 +140,10 @@ def test_persist_directory(tmp_path):
 # Test: Basic RAG Query
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_query_with_documents(
-    setup_embedding_model,
-    sample_api_documents,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, sample_api_documents, test_collection_name, test_persist_directory
 ):
     """Test basic RAG-based query answering with documents"""
 
@@ -167,8 +166,9 @@ async def test_query_with_documents(
 
     # Check response content
     assert len(response["response"]) > 0, "Response should not be empty"
-    assert "POST" in response["response"] or "post" in response["response"].lower(), \
+    assert "POST" in response["response"] or "post" in response["response"].lower(), (
         "Response should mention POST method"
+    )
 
     # Check cURL command
     curl = response["curl_command"]
@@ -180,10 +180,7 @@ async def test_query_with_documents(
 
 @pytest.mark.asyncio
 async def test_query_returns_relevant_sources(
-    setup_embedding_model,
-    sample_api_documents,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, sample_api_documents, test_collection_name, test_persist_directory
 ):
     """Test that query returns relevant source citations"""
 
@@ -206,20 +203,19 @@ async def test_query_returns_relevant_sources(
     # Should include the authentication document
     source_texts = [str(source) for source in sources]
     combined_sources = " ".join(source_texts).lower()
-    assert "auth" in combined_sources or "token" in combined_sources, \
+    assert "auth" in combined_sources or "token" in combined_sources, (
         "Sources should be relevant to authentication"
+    )
 
 
 # ============================================================================
 # Test: cURL Command Generation
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_curl_command_generation(
-    setup_embedding_model,
-    sample_api_documents,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, sample_api_documents, test_collection_name, test_persist_directory
 ):
     """Test that cURL commands are generated correctly"""
 
@@ -231,7 +227,9 @@ async def test_curl_command_generation(
     )
 
     # Act
-    response = await agent.query("Show me how to create a user with name 'John' and email 'john@example.com'")
+    response = await agent.query(
+        "Show me how to create a user with name 'John' and email 'john@example.com'"
+    )
 
     # Assert
     curl = response.get("curl_command")
@@ -240,20 +238,19 @@ async def test_curl_command_generation(
     if curl:  # LLM may or may not generate cURL command
         assert "curl" in curl.lower(), "Should contain curl command"
         # Check that it contains either the endpoint or the base URL
-        assert "/users" in curl or "api.example.com" in curl, \
+        assert "/users" in curl or "api.example.com" in curl, (
             "Should contain the endpoint or base URL"
+        )
 
 
 # ============================================================================
 # Test: Conversation History
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_conversation_history_maintained(
-    setup_embedding_model,
-    sample_api_documents,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, sample_api_documents, test_collection_name, test_persist_directory
 ):
     """Test that conversation history is maintained across queries"""
 
@@ -275,20 +272,19 @@ async def test_conversation_history_maintained(
     # Assert - Follow-up should understand "that" refers to creating a user
     assert len(response2["response"]) > 0, "Follow-up response should not be empty"
     # The response should mention authentication
-    assert "auth" in response2["response"].lower() or "token" in response2["response"].lower(), \
+    assert "auth" in response2["response"].lower() or "token" in response2["response"].lower(), (
         "Follow-up should understand context and mention authentication"
+    )
 
 
 # ============================================================================
 # Test: Vector Database Integration
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_chroma_persistence(
-    setup_embedding_model,
-    sample_api_documents,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, sample_api_documents, test_collection_name, test_persist_directory
 ):
     """Test that Chroma vector database persists correctly"""
 
@@ -325,11 +321,10 @@ async def test_chroma_persistence(
 # Test: Error Handling
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_empty_documents_handling(
-    setup_embedding_model,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, test_collection_name, test_persist_directory
 ):
     """Test error handling for empty document list"""
 
@@ -345,10 +340,7 @@ async def test_empty_documents_handling(
 
 @pytest.mark.asyncio
 async def test_invalid_query_handling(
-    setup_embedding_model,
-    sample_api_documents,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, sample_api_documents, test_collection_name, test_persist_directory
 ):
     """Test error handling for invalid queries"""
 
@@ -364,4 +356,3 @@ async def test_invalid_query_handling(
 
     # Assert - Should handle gracefully (may return empty or error response)
     assert response is not None, "Should return some response even for empty query"
-

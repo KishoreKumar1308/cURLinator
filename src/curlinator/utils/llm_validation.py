@@ -13,19 +13,19 @@ logger = logging.getLogger(__name__)
 def is_valid_api_key(api_key: str | None, provider: str) -> bool:
     """
     Check if an API key is valid (not a test/placeholder key).
-    
+
     This function validates that an API key:
     1. Exists (is not None or empty)
     2. Doesn't contain common test/placeholder patterns
     3. Matches the expected format for the provider
-    
+
     Args:
         api_key: The API key to validate (can be None)
         provider: The provider name ("openai", "anthropic", "gemini")
-    
+
     Returns:
         True if the key appears to be valid, False otherwise
-        
+
     Examples:
         >>> is_valid_api_key("sk-test-key-not-real", "openai")
         False
@@ -43,14 +43,14 @@ def is_valid_api_key(api_key: str | None, provider: str) -> bool:
 
     # Common test/placeholder patterns
     test_patterns = [
-        'test-key',
-        'not-real',
-        'placeholder',
-        'dummy',
-        'fake',
-        'mock',
-        'example',
-        'invalid',
+        "test-key",
+        "not-real",
+        "placeholder",
+        "dummy",
+        "fake",
+        "mock",
+        "example",
+        "invalid",
     ]
 
     # Check if key contains any test patterns (case-insensitive)
@@ -63,7 +63,7 @@ def is_valid_api_key(api_key: str | None, provider: str) -> bool:
     if provider == "openai":
         # OpenAI keys start with 'sk-' and are at least 20 chars
         # Real keys are typically 48+ characters
-        is_valid = api_key.startswith('sk-') and len(api_key) > 20
+        is_valid = api_key.startswith("sk-") and len(api_key) > 20
         if not is_valid:
             logger.debug(f"OpenAI API key failed format validation: {api_key[:20]}...")
         return is_valid
@@ -71,7 +71,7 @@ def is_valid_api_key(api_key: str | None, provider: str) -> bool:
     elif provider == "anthropic":
         # Anthropic keys start with 'sk-ant-' and are at least 20 chars
         # Real keys are typically 100+ characters
-        is_valid = api_key.startswith('sk-ant-') and len(api_key) > 20
+        is_valid = api_key.startswith("sk-ant-") and len(api_key) > 20
         if not is_valid:
             logger.debug(f"Anthropic API key failed format validation: {api_key[:20]}...")
         return is_valid
@@ -92,17 +92,17 @@ def is_valid_api_key(api_key: str | None, provider: str) -> bool:
 def validate_llm_config(provider: str, api_key: str | None) -> bool:
     """
     Validate LLM configuration before attempting initialization.
-    
+
     This is a convenience wrapper around is_valid_api_key that also logs
     appropriate messages for debugging.
-    
+
     Args:
         provider: The LLM provider name ("openai", "anthropic", "gemini")
         api_key: The API key to validate
-        
+
     Returns:
         True if the configuration is valid and LLM can be initialized, False otherwise
-        
+
     Examples:
         >>> validate_llm_config("openai", "sk-test-key-not-real")
         False
@@ -121,4 +121,3 @@ def validate_llm_config(provider: str, api_key: str | None) -> bool:
         return False
 
     return True
-

@@ -46,12 +46,12 @@ pytestmark = [pytest.mark.integration, pytest.mark.slow, requires_llm]
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture(scope="module")
 def setup_embedding_model():
     """Set up local embedding model for tests"""
     Settings.embed_model = HuggingFaceEmbedding(
-        model_name="BAAI/bge-small-en-v1.5",
-        cache_folder="./data/models"
+        model_name="BAAI/bge-small-en-v1.5", cache_folder="./data/models"
     )
     yield
 
@@ -60,6 +60,7 @@ def setup_embedding_model():
 def test_collection_name():
     """Generate unique collection name for each test"""
     import uuid
+
     return f"test_e2e_{uuid.uuid4().hex[:8]}"
 
 
@@ -78,11 +79,10 @@ def test_persist_directory(tmp_path):
 # Test: Complete Workflow with OpenAPI
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_complete_workflow_with_openapi(
-    setup_embedding_model,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, test_collection_name, test_persist_directory
 ):
     """Test complete workflow: DocumentationAgent → ChatAgent with OpenAPI spec"""
     # Check for API key
@@ -122,8 +122,9 @@ async def test_complete_workflow_with_openapi(
 
     # Check that response is relevant
     response_text = response["response"].lower()
-    assert "pet" in response_text or "post" in response_text, \
+    assert "pet" in response_text or "post" in response_text, (
         "Response should be relevant to adding a pet"
+    )
 
     # Check cURL command
     if response.get("curl_command"):
@@ -134,9 +135,7 @@ async def test_complete_workflow_with_openapi(
 
 @pytest.mark.asyncio
 async def test_complete_workflow_without_openapi(
-    setup_embedding_model,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, test_collection_name, test_persist_directory
 ):
     """Test complete workflow with site that has no OpenAPI spec"""
     # Check for API key
@@ -178,11 +177,10 @@ async def test_complete_workflow_without_openapi(
 # Test: Multiple Queries on Same Document Set
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_multiple_queries_on_same_documents(
-    setup_embedding_model,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, test_collection_name, test_persist_directory
 ):
     """Test multiple queries on the same document set"""
     # Check for API key
@@ -227,11 +225,10 @@ async def test_multiple_queries_on_same_documents(
 # Test: Conversation Context
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_conversation_context_maintained(
-    setup_embedding_model,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, test_collection_name, test_persist_directory
 ):
     """Test that conversation context is maintained across queries"""
     # Check for API key
@@ -273,11 +270,10 @@ async def test_conversation_context_maintained(
 # Test: Document Metadata Preservation
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_document_metadata_preserved(
-    setup_embedding_model,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, test_collection_name, test_persist_directory
 ):
     """Test that document metadata is preserved through the workflow"""
     # Check for API key
@@ -300,14 +296,14 @@ async def test_document_metadata_preserved(
     # Note: OpenAPI documents have different metadata than crawled documents
     for doc in documents[:5]:
         # All documents should have source
-        assert 'source' in doc.metadata, "Should have source metadata"
+        assert "source" in doc.metadata, "Should have source metadata"
 
         # OpenAPI documents have 'type', crawled documents have 'page_type'
-        has_type_info = 'type' in doc.metadata or 'page_type' in doc.metadata
+        has_type_info = "type" in doc.metadata or "page_type" in doc.metadata
         assert has_type_info, "Should have type or page_type metadata"
 
         # OpenAPI documents have 'source', crawled documents have 'URL' or 'url'
-        has_url_info = 'URL' in doc.metadata or 'url' in doc.metadata or 'source' in doc.metadata
+        has_url_info = "URL" in doc.metadata or "url" in doc.metadata or "source" in doc.metadata
         assert has_url_info, "Should have URL/url/source metadata"
 
     # Step 2: Create ChatAgent and query
@@ -329,11 +325,10 @@ async def test_document_metadata_preserved(
 # Test: Enrichment Impact
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_enrichment_improves_retrieval(
-    setup_embedding_model,
-    test_collection_name,
-    test_persist_directory
+    setup_embedding_model, test_collection_name, test_persist_directory
 ):
     """Test that contextual enrichment improves retrieval quality"""
     # Check for API key
@@ -355,11 +350,13 @@ async def test_enrichment_improves_retrieval(
 
     # Check that some documents are enriched
     # Note: Enrichment may not be applied to all documents (only crawled ones, not OpenAPI)
-    enriched_docs = [doc for doc in documents if doc.metadata.get('contextually_enriched')]
+    enriched_docs = [doc for doc in documents if doc.metadata.get("contextually_enriched")]
     # If no OpenAPI was found, we should have some enriched documents
-    has_openapi = any('type' in doc.metadata for doc in documents)
+    has_openapi = any("type" in doc.metadata for doc in documents)
     if not has_openapi:
-        assert len(enriched_docs) > 0, "Should have enriched documents when crawling without OpenAPI"
+        assert len(enriched_docs) > 0, (
+            "Should have enriched documents when crawling without OpenAPI"
+        )
 
     # Step 2: Query with ChatAgent
     chat_agent = ChatAgent(
@@ -375,4 +372,3 @@ async def test_enrichment_improves_retrieval(
     assert response is not None, "Should return response"
     assert len(response["response"]) > 0, "Response should not be empty"
     assert len(response.get("sources", [])) > 0, "Should return relevant sources"
-

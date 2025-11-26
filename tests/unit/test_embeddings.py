@@ -2,7 +2,6 @@
 Unit tests for embedding model utility functions.
 """
 
-
 import pytest
 
 from curlinator.models.embeddings import EmbeddingProvider
@@ -40,7 +39,7 @@ class TestGetEmbeddingModel:
         """Test OPENAI provider when API key is available."""
         embed_model, provider_name, model_name = get_embedding_model(
             EmbeddingProvider.OPENAI,
-            openai_api_key="sk-test1234567890123456789012345678901234567890"
+            openai_api_key="sk-test1234567890123456789012345678901234567890",
         )
 
         assert provider_name == "openai"
@@ -58,8 +57,7 @@ class TestGetEmbeddingModel:
     def test_gemini_provider_with_api_key(self):
         """Test GEMINI provider when API key is available."""
         embed_model, provider_name, model_name = get_embedding_model(
-            EmbeddingProvider.GEMINI,
-            gemini_api_key="AIzaSyTest1234567890123456789012345"
+            EmbeddingProvider.GEMINI, gemini_api_key="AIzaSyTest1234567890123456789012345"
         )
 
         assert provider_name == "gemini"
@@ -76,8 +74,7 @@ class TestGetEmbeddingModel:
     def test_auto_mode_selects_openai(self):
         """Test AUTO mode selects OpenAI when API key is available."""
         embed_model, provider_name, model_name = get_embedding_model(
-            EmbeddingProvider.AUTO,
-            openai_api_key="sk-test1234567890123456789012345678901234567890"
+            EmbeddingProvider.AUTO, openai_api_key="sk-test1234567890123456789012345678901234567890"
         )
 
         assert provider_name == "openai"
@@ -86,8 +83,7 @@ class TestGetEmbeddingModel:
     def test_auto_mode_selects_gemini(self):
         """Test AUTO mode selects Gemini when only Gemini API key is available."""
         embed_model, provider_name, model_name = get_embedding_model(
-            EmbeddingProvider.AUTO,
-            gemini_api_key="AIzaSyTest1234567890123456789012345"
+            EmbeddingProvider.AUTO, gemini_api_key="AIzaSyTest1234567890123456789012345"
         )
 
         assert provider_name == "gemini"
@@ -105,7 +101,7 @@ class TestGetEmbeddingModel:
         embed_model, provider_name, model_name = get_embedding_model(
             EmbeddingProvider.AUTO,
             openai_api_key="sk-test1234567890123456789012345678901234567890",
-            gemini_api_key="AIzaSyTest1234567890123456789012345"
+            gemini_api_key="AIzaSyTest1234567890123456789012345",
         )
 
         assert provider_name == "openai"
@@ -131,4 +127,3 @@ class TestGetEmbeddingModel:
 
         assert provider_name == "local"
         assert model_name == "BAAI/bge-small-en-v1.5"
-

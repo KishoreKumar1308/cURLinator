@@ -58,9 +58,9 @@ def get_settings() -> Settings:
 def validate_environment() -> None:
     """
     Validate required environment variables on startup.
-    
+
     For core library, this is optional - users can provide API keys programmatically.
-    
+
     Raises:
         ValueError: If required environment variables are missing or invalid
     """
@@ -73,9 +73,7 @@ def validate_environment() -> None:
 
     # Check if at least one LLM API key is configured
     has_llm_key = bool(
-        settings.openai_api_key or
-        settings.anthropic_api_key or
-        settings.gemini_api_key
+        settings.openai_api_key or settings.anthropic_api_key or settings.gemini_api_key
     )
 
     if not has_llm_key:
@@ -83,4 +81,3 @@ def validate_environment() -> None:
             "No LLM API keys configured. You can provide them programmatically "
             "when creating agents, or set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GEMINI_API_KEY."
         )
-

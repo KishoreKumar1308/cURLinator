@@ -133,13 +133,17 @@ def _classify_with_rules(html_content: str, url: str) -> str:
     # 1. Authentication pages
     if _matches_patterns(url_path, ["auth", "authentication", "authorization", "oauth", "api-key"]):
         return "authentication"
-    if _contains_keywords(text_content, ["authentication", "api key", "bearer token", "oauth"], threshold=2):
+    if _contains_keywords(
+        text_content, ["authentication", "api key", "bearer token", "oauth"], threshold=2
+    ):
         return "authentication"
 
     # 2. Quickstart/Getting Started
     if _matches_patterns(url_path, ["quickstart", "getting-started", "get-started", "quick-start"]):
         return "quickstart"
-    if _contains_keywords(text_content, ["getting started", "quick start", "first request"], threshold=2):
+    if _contains_keywords(
+        text_content, ["getting started", "quick start", "first request"], threshold=2
+    ):
         return "quickstart"
 
     # 3. API Reference (endpoint documentation)
@@ -157,19 +161,25 @@ def _classify_with_rules(html_content: str, url: str) -> str:
     # 4. SDK/Library documentation
     if _matches_patterns(url_path, ["sdk", "library", "client", "package"]):
         return "sdk"
-    if _contains_keywords(text_content, ["install", "npm install", "pip install", "import"], threshold=2):
+    if _contains_keywords(
+        text_content, ["install", "npm install", "pip install", "import"], threshold=2
+    ):
         return "sdk"
 
     # 5. Webhook documentation
     if _matches_patterns(url_path, ["webhook", "events", "callbacks"]):
         return "webhook"
-    if _contains_keywords(text_content, ["webhook", "event", "callback", "notification"], threshold=2):
+    if _contains_keywords(
+        text_content, ["webhook", "event", "callback", "notification"], threshold=2
+    ):
         return "webhook"
 
     # 6. Error handling
     if _matches_patterns(url_path, ["error", "errors", "troubleshoot"]):
         return "error"
-    if _contains_keywords(text_content, ["error code", "error handling", "troubleshooting"], threshold=2):
+    if _contains_keywords(
+        text_content, ["error code", "error handling", "troubleshooting"], threshold=2
+    ):
         return "error"
 
     # 7. Changelog/Release notes
@@ -310,15 +320,19 @@ def extract_page_metadata(
 
     metadata: dict[str, any] = {
         "url": url,
-        "page_type": classify_page_type(html_content, url, llm=llm, use_llm_fallback=use_llm_fallback),
+        "page_type": classify_page_type(
+            html_content, url, llm=llm, use_llm_fallback=use_llm_fallback
+        ),
     }
 
     # 1. Extract title
     title_tag = soup.find("title")
     h1_tag = soup.find("h1")
     metadata["title"] = (
-        title_tag.get_text(strip=True) if title_tag
-        else h1_tag.get_text(strip=True) if h1_tag
+        title_tag.get_text(strip=True)
+        if title_tag
+        else h1_tag.get_text(strip=True)
+        if h1_tag
         else "Untitled"
     )
 
@@ -433,4 +447,3 @@ def _extract_endpoints(soup: BeautifulSoup) -> list[str] | None:
                 endpoints.append(endpoint)
 
     return endpoints if endpoints else None
-

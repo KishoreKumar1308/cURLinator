@@ -30,7 +30,7 @@ def get_embedding_model(
 ) -> tuple[Any, str, str]:
     """
     Get embedding model instance based on provider.
-    
+
     Args:
         provider: EmbeddingProvider enum or string ("local", "openai", "gemini", "auto")
         openai_api_key: OpenAI API key (required for OpenAI provider)
@@ -40,10 +40,10 @@ def get_embedding_model(
         gemini_model: Gemini embedding model name (default: gemini-embedding-001)
         local_model: HuggingFace model name for local embeddings (default: BAAI/bge-small-en-v1.5)
         local_cache_folder: Cache folder for local models (default: ./data/models)
-        
+
     Returns:
         Tuple of (embed_model_instance, provider_name, model_name)
-        
+
     Raises:
         ValueError: If provider is invalid or required API key is missing
     """
@@ -75,10 +75,7 @@ def get_embedding_model(
 
     # Instantiate the selected provider
     if provider == EmbeddingProvider.LOCAL:
-        embed_model = HuggingFaceEmbedding(
-            model_name=local_model,
-            cache_folder=local_cache_folder
-        )
+        embed_model = HuggingFaceEmbedding(model_name=local_model, cache_folder=local_cache_folder)
         logger.info(f"Using local embedding model: {local_model}")
         return embed_model, "local", local_model
 
@@ -119,4 +116,3 @@ def get_embedding_model(
 
     else:
         raise ValueError(f"Unsupported embedding provider: {provider}")
-

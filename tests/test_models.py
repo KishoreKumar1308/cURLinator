@@ -278,4 +278,3 @@ def test_documentation_page_with_summary() -> None:
     assert len(page.summary.code_examples) == 1
     assert len(page.summary.api_content.endpoints_mentioned) == 2
     assert page.summary.relevance_score == 0.95
-

@@ -28,25 +28,16 @@ class TestNormalizeUrl:
 
     def test_removes_fragment(self) -> None:
         """Test that URL fragments are removed"""
-        assert (
-            normalize_url("https://example.com/docs#section")
-            == "https://example.com/docs"
-        )
+        assert normalize_url("https://example.com/docs#section") == "https://example.com/docs"
 
     def test_lowercases_domain(self) -> None:
         """Test that domain is lowercased"""
         assert normalize_url("https://EXAMPLE.COM") == "https://example.com"
-        assert (
-            normalize_url("https://API.EXAMPLE.COM/Docs")
-            == "https://api.example.com/Docs"
-        )
+        assert normalize_url("https://API.EXAMPLE.COM/Docs") == "https://api.example.com/Docs"
 
     def test_preserves_path_case(self) -> None:
         """Test that path case is preserved"""
-        assert (
-            normalize_url("https://example.com/API/Docs")
-            == "https://example.com/API/Docs"
-        )
+        assert normalize_url("https://example.com/API/Docs") == "https://example.com/API/Docs"
 
     def test_preserves_query_parameters(self) -> None:
         """Test that query parameters are preserved"""
@@ -231,38 +222,23 @@ class TestIsSameDomain:
 
     def test_same_domain_returns_true(self) -> None:
         """Test that same domains are recognized"""
-        assert is_same_domain(
-            "https://example.com/docs",
-            "https://example.com/api"
-        ) is True
+        assert is_same_domain("https://example.com/docs", "https://example.com/api") is True
 
     def test_different_domains_returns_false(self) -> None:
         """Test that different domains are recognized"""
-        assert is_same_domain(
-            "https://example.com",
-            "https://other.com"
-        ) is False
+        assert is_same_domain("https://example.com", "https://other.com") is False
 
     def test_different_subdomains_returns_false(self) -> None:
         """Test that different subdomains are different"""
-        assert is_same_domain(
-            "https://api.example.com",
-            "https://docs.example.com"
-        ) is False
+        assert is_same_domain("https://api.example.com", "https://docs.example.com") is False
 
     def test_case_insensitive_comparison(self) -> None:
         """Test that domain comparison is case-insensitive"""
-        assert is_same_domain(
-            "https://EXAMPLE.COM",
-            "https://example.com"
-        ) is True
+        assert is_same_domain("https://EXAMPLE.COM", "https://example.com") is True
 
     def test_different_schemes_same_domain(self) -> None:
         """Test that scheme doesn't affect domain comparison"""
-        assert is_same_domain(
-            "http://example.com",
-            "https://example.com"
-        ) is True
+        assert is_same_domain("http://example.com", "https://example.com") is True
 
     def test_handles_invalid_urls(self) -> None:
         """Test that invalid URLs are handled gracefully"""
@@ -298,33 +274,17 @@ class TestIsExternalUrl:
 
     def test_external_domain_returns_true(self) -> None:
         """Test that external domains are recognized"""
-        assert is_external_url(
-            "https://example.com",
-            "https://other.com"
-        ) is True
+        assert is_external_url("https://example.com", "https://other.com") is True
 
     def test_same_domain_returns_false(self) -> None:
         """Test that same domain is not external"""
-        assert is_external_url(
-            "https://example.com",
-            "https://example.com/docs"
-        ) is False
+        assert is_external_url("https://example.com", "https://example.com/docs") is False
 
     def test_relative_url_returns_false(self) -> None:
         """Test that relative URLs are not external"""
-        assert is_external_url(
-            "https://example.com",
-            "/docs/api"
-        ) is False
-        assert is_external_url(
-            "https://example.com",
-            "docs/api"
-        ) is False
+        assert is_external_url("https://example.com", "/docs/api") is False
+        assert is_external_url("https://example.com", "docs/api") is False
 
     def test_subdomain_is_external(self) -> None:
         """Test that different subdomains are external"""
-        assert is_external_url(
-            "https://api.example.com",
-            "https://docs.example.com"
-        ) is True
-
+        assert is_external_url("https://api.example.com", "https://docs.example.com") is True

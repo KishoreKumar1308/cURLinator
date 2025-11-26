@@ -293,10 +293,7 @@ Now, answer the user's question using the provided API documentation."""
 
         try:
             # 1. Create vector retriever
-            vector_retriever = self.index.as_retriever(
-                similarity_top_k=5,
-                verbose=self.verbose
-            )
+            vector_retriever = self.index.as_retriever(similarity_top_k=5, verbose=self.verbose)
             self._log("Created vector retriever (top_k=5)")
 
             # 2. Create BM25 retriever (if possible)
@@ -305,11 +302,11 @@ Now, answer the user's question using the provided API documentation."""
             bm25_retriever = None
 
             # Try 1: Get from docstore (available when building new index)
-            if hasattr(self.index, 'docstore') and self.index.docstore.docs:
+            if hasattr(self.index, "docstore") and self.index.docstore.docs:
                 nodes = list(self.index.docstore.docs.values())
                 self._log(f"Got {len(nodes)} nodes from docstore")
             # Try 2: Get from vector store (available when loading from storage)
-            elif hasattr(self.index, 'vector_store'):
+            elif hasattr(self.index, "vector_store"):
                 try:
                     # Retrieve all nodes from vector store using a broad query
                     retriever = self.index.as_retriever(similarity_top_k=100)
@@ -323,7 +320,6 @@ Now, answer the user's question using the provided API documentation."""
                     self._log(f"⚠️  Could not retrieve nodes from vector store: {e}")
             # Try 3: Create from documents (fallback)
             if not nodes and self.documents:
-
                 parser = SentenceSplitter()
                 nodes = parser.get_nodes_from_documents(self.documents)
                 self._log(f"Created {len(nodes)} nodes from documents")
@@ -335,7 +331,7 @@ Now, answer the user's question using the provided API documentation."""
                         nodes=nodes,
                         similarity_top_k=5,
                         stemmer=Stemmer("english"),
-                        language="english"
+                        language="english",
                     )
                     self._log("Created BM25 retriever (top_k=5)")
                 except Exception as e:
@@ -353,7 +349,7 @@ Now, answer the user's question using the provided API documentation."""
                     num_queries=1,  # No query generation, just fusion
                     mode="reciprocal_rerank",
                     use_async=True,
-                    verbose=self.verbose
+                    verbose=self.verbose,
                 )
                 self._log("Created hybrid retriever (vector + BM25)")
             else:
@@ -366,7 +362,9 @@ Now, answer the user's question using the provided API documentation."""
                 token_limit=3000,
                 llm=self.llm,  # Uses LLM to summarize old messages
             )
-            self._log("Created chat summary memory buffer (token_limit=3000, auto-summarization enabled)")
+            self._log(
+                "Created chat summary memory buffer (token_limit=3000, auto-summarization enabled)"
+            )
 
             # 5. Create chat engine with conversation history
             self.chat_engine = ContextChatEngine.from_defaults(
@@ -503,8 +501,8 @@ Now, answer the user's question using the provided API documentation."""
                 "metadata": {
                     "query": user_query,
                     "num_sources": len(sources),
-                    "has_curl": curl_command is not None
-                }
+                    "has_curl": curl_command is not None,
+                },
             }
 
         except Exception as e:
@@ -561,7 +559,7 @@ Now, answer the user's question using the provided API documentation."""
         if match:
             # Clean up backslashes and newlines
             cmd = match.group(1).strip()
-            cmd = re.sub(r'\\\s*\n\s*', ' ', cmd)
+            cmd = re.sub(r"\\\s*\n\s*", " ", cmd)
             return cmd.strip()
 
         return None
@@ -617,9 +615,8 @@ Now, answer the user's question using the provided API documentation."""
             >>> agent.reset_conversation()  # Clear all history and summaries
             >>> await agent.execute("How do I delete a customer?")  # Fresh start
         """
-        if self.chat_engine and hasattr(self.chat_engine, 'reset'):
+        if self.chat_engine and hasattr(self.chat_engine, "reset"):
             self.chat_engine.reset()
             self._log("✅ Conversation history and summaries reset")
         else:
             self._log("⚠️ Chat engine does not support reset")
-

@@ -32,13 +32,13 @@ class ValidationResult:
 def is_valid_openapi(spec: dict) -> bool:
     """
     Quick check if a dict is a valid OpenAPI specification.
-    
+
     Args:
         spec: Dictionary to validate
-        
+
     Returns:
         True if appears to be valid OpenAPI spec
-        
+
     Examples:
         >>> is_valid_openapi({"openapi": "3.0.0", "info": {"title": "API"}})
         True
@@ -72,13 +72,13 @@ def is_valid_openapi(spec: dict) -> bool:
 def get_openapi_version(spec: dict) -> OpenAPIVersion:
     """
     Detect the OpenAPI/Swagger version from a specification.
-    
+
     Args:
         spec: OpenAPI specification dictionary
-        
+
     Returns:
         Detected OpenAPI version
-        
+
     Examples:
         >>> get_openapi_version({"openapi": "3.0.0"})
         OpenAPIVersion.OPENAPI_3_0
@@ -109,15 +109,15 @@ def get_openapi_version(spec: dict) -> OpenAPIVersion:
 def validate_openapi_structure(spec: dict) -> ValidationResult:
     """
     Validate OpenAPI specification structure with detailed error reporting.
-    
+
     Checks required fields based on detected version.
-    
+
     Args:
         spec: OpenAPI specification dictionary
-        
+
     Returns:
         ValidationResult with detailed validation information
-        
+
     Examples:
         >>> result = validate_openapi_structure({"openapi": "3.0.0", "info": {"title": "API"}})
         >>> result.is_valid
@@ -128,8 +128,7 @@ def validate_openapi_structure(spec: dict) -> ValidationResult:
     # Basic type check
     if not isinstance(spec, dict):
         return ValidationResult(
-            is_valid=False,
-            errors=["Specification must be a dictionary/object"]
+            is_valid=False, errors=["Specification must be a dictionary/object"]
         )
 
     # Check for version identifier
@@ -221,13 +220,13 @@ def _validate_openapi_3_x(spec: dict) -> list[str]:
 def extract_api_info(spec: dict) -> dict[str, str]:
     """
     Extract basic API information from OpenAPI spec.
-    
+
     Args:
         spec: OpenAPI specification dictionary
-        
+
     Returns:
         Dict with title, version, description, base_url
-        
+
     Examples:
         >>> info = extract_api_info({"openapi": "3.0.0", "info": {"title": "My API", "version": "1.0"}})
         >>> info["title"]
@@ -270,13 +269,13 @@ def extract_api_info(spec: dict) -> dict[str, str]:
 def count_endpoints(spec: dict) -> int:
     """
     Count the number of endpoints in an OpenAPI spec.
-    
+
     Args:
         spec: OpenAPI specification dictionary
-        
+
     Returns:
         Number of endpoint+method combinations
-        
+
     Examples:
         >>> count_endpoints({"paths": {"/users": {"get": {}, "post": {}}}})
         2
@@ -305,10 +304,10 @@ def count_endpoints(spec: dict) -> int:
 def has_authentication(spec: dict) -> bool:
     """
     Check if OpenAPI spec defines authentication.
-    
+
     Args:
         spec: OpenAPI specification dictionary
-        
+
     Returns:
         True if authentication is defined
     """
@@ -341,10 +340,10 @@ def has_authentication(spec: dict) -> bool:
 def get_spec_summary(spec: dict) -> dict[str, any]:
     """
     Get a summary of an OpenAPI specification.
-    
+
     Args:
         spec: OpenAPI specification dictionary
-        
+
     Returns:
         Dict with summary information
     """
@@ -362,4 +361,3 @@ def get_spec_summary(spec: dict) -> dict[str, any]:
         "has_authentication": has_authentication(spec),
         "validation_errors": validation.errors,
     }
-

@@ -28,6 +28,7 @@ from curlinator.utils.page_classifier import (
 # Fixtures
 # ============================================================================
 
+
 @pytest.fixture
 def mock_llm():
     """Create a mock LLM for testing"""
@@ -270,103 +271,74 @@ def page_with_endpoints():
 # Test classify_page_type (Rule-based)
 # ============================================================================
 
+
 class TestClassifyPageTypeRuleBased:
     """Tests for rule-based page type classification"""
 
     def test_classifies_authentication_page_by_url(self, authentication_page_html):
         """Test classifies authentication page by URL pattern"""
-        result = classify_page_type(
-            authentication_page_html,
-            "https://docs.example.com/auth"
-        )
+        result = classify_page_type(authentication_page_html, "https://docs.example.com/auth")
         assert result == "authentication"
 
     def test_classifies_authentication_page_by_content(self, authentication_page_html):
         """Test classifies authentication page by content keywords"""
-        result = classify_page_type(
-            authentication_page_html,
-            "https://docs.example.com/some-page"
-        )
+        result = classify_page_type(authentication_page_html, "https://docs.example.com/some-page")
         assert result == "authentication"
 
     def test_classifies_quickstart_page(self, quickstart_page_html):
         """Test classifies quickstart/getting started page"""
         result = classify_page_type(
-            quickstart_page_html,
-            "https://docs.example.com/getting-started"
+            quickstart_page_html, "https://docs.example.com/getting-started"
         )
         assert result == "quickstart"
 
     def test_classifies_api_reference_page(self, api_reference_page_html):
         """Test classifies API reference page with HTTP methods"""
         result = classify_page_type(
-            api_reference_page_html,
-            "https://docs.example.com/api/users/create"
+            api_reference_page_html, "https://docs.example.com/api/users/create"
         )
         assert result == "api_reference"
 
     def test_classifies_sdk_page(self, sdk_page_html):
         """Test classifies SDK documentation page"""
-        result = classify_page_type(
-            sdk_page_html,
-            "https://docs.example.com/sdk/python"
-        )
+        result = classify_page_type(sdk_page_html, "https://docs.example.com/sdk/python")
         assert result == "sdk"
 
     def test_classifies_webhook_page(self, webhook_page_html):
         """Test classifies webhook documentation page"""
-        result = classify_page_type(
-            webhook_page_html,
-            "https://docs.example.com/webhooks"
-        )
+        result = classify_page_type(webhook_page_html, "https://docs.example.com/webhooks")
         assert result == "webhook"
 
     def test_classifies_error_page(self, error_page_html):
         """Test classifies error documentation page"""
-        result = classify_page_type(
-            error_page_html,
-            "https://docs.example.com/errors"
-        )
+        result = classify_page_type(error_page_html, "https://docs.example.com/errors")
         assert result == "error"
 
     def test_classifies_changelog_page(self, changelog_page_html):
         """Test classifies changelog page"""
-        result = classify_page_type(
-            changelog_page_html,
-            "https://docs.example.com/changelog"
-        )
+        result = classify_page_type(changelog_page_html, "https://docs.example.com/changelog")
         assert result == "changelog"
 
     def test_classifies_tutorial_page(self, tutorial_page_html):
         """Test classifies tutorial page"""
         result = classify_page_type(
-            tutorial_page_html,
-            "https://docs.example.com/tutorials/chat-app"
+            tutorial_page_html, "https://docs.example.com/tutorials/chat-app"
         )
         assert result == "tutorial"
 
     def test_classifies_guide_page(self, guide_page_html):
         """Test classifies guide page"""
-        result = classify_page_type(
-            guide_page_html,
-            "https://docs.example.com/guides/pagination"
-        )
+        result = classify_page_type(guide_page_html, "https://docs.example.com/guides/pagination")
         assert result == "guide"
 
     def test_classifies_overview_page(self, overview_page_html):
         """Test classifies overview page"""
-        result = classify_page_type(
-            overview_page_html,
-            "https://docs.example.com/overview"
-        )
+        result = classify_page_type(overview_page_html, "https://docs.example.com/overview")
         assert result == "overview"
 
     def test_returns_unknown_for_ambiguous_page(self, ambiguous_page_html):
         """Test returns 'unknown' for ambiguous pages"""
-        result = classify_page_type(
-            ambiguous_page_html,
-            "https://docs.example.com/random"
-        )
+        result = classify_page_type(ambiguous_page_html, "https://docs.example.com/random")
         assert result == "unknown"
 
     def test_prioritizes_specific_classifications(self):
@@ -390,33 +362,34 @@ class TestClassifyPageTypeRuleBased:
 # Test classify_page_type (LLM Fallback)
 # ============================================================================
 
+
 class TestClassifyPageTypeLLMFallback:
     """Tests for LLM fallback classification"""
 
     def test_uses_llm_fallback_when_enabled(self, ambiguous_page_html):
         """Test uses LLM fallback when rule-based returns 'unknown'"""
         # Mock the _classify_with_llm function directly
-        with patch('curlinator.utils.page_classifier._classify_with_llm', return_value="guide") as mock_classify:
+        with patch(
+            "curlinator.utils.page_classifier._classify_with_llm", return_value="guide"
+        ) as mock_classify:
             result = classify_page_type(
                 ambiguous_page_html,
                 "https://docs.example.com/random",
                 llm=MockLLM(),
-                use_llm_fallback=True
+                use_llm_fallback=True,
             )
 
             assert result == "guide"
             mock_classify.assert_called_once()
 
-    def test_does_not_use_llm_when_rule_based_succeeds(
-        self, authentication_page_html
-    ):
+    def test_does_not_use_llm_when_rule_based_succeeds(self, authentication_page_html):
         """Test does not use LLM when rule-based classification succeeds"""
-        with patch('curlinator.utils.page_classifier._classify_with_llm') as mock_classify:
+        with patch("curlinator.utils.page_classifier._classify_with_llm") as mock_classify:
             result = classify_page_type(
                 authentication_page_html,
                 "https://docs.example.com/auth",
                 llm=MockLLM(),
-                use_llm_fallback=True
+                use_llm_fallback=True,
             )
 
             assert result == "authentication"
@@ -425,31 +398,27 @@ class TestClassifyPageTypeLLMFallback:
 
     def test_does_not_use_llm_when_disabled(self, ambiguous_page_html):
         """Test does not use LLM when use_llm_fallback=False"""
-        with patch('curlinator.utils.page_classifier._classify_with_llm') as mock_classify:
+        with patch("curlinator.utils.page_classifier._classify_with_llm") as mock_classify:
             result = classify_page_type(
                 ambiguous_page_html,
                 "https://docs.example.com/random",
                 llm=MockLLM(),
-                use_llm_fallback=False
+                use_llm_fallback=False,
             )
 
             assert result == "unknown"
             mock_classify.assert_not_called()
 
-    def test_returns_unknown_when_llm_returns_invalid_type(
-        self, ambiguous_page_html
-    ):
+    def test_returns_unknown_when_llm_returns_invalid_type(self, ambiguous_page_html):
         """Test returns 'unknown' when LLM returns invalid page type"""
         # Test _classify_with_llm directly to test validation logic
         mock_llm = MockLLM()
         mock_response = MagicMock()
         mock_response.text = "invalid_type"
 
-        with patch.object(type(mock_llm), 'complete', return_value=mock_response):
+        with patch.object(type(mock_llm), "complete", return_value=mock_response):
             result = _classify_with_llm(
-                ambiguous_page_html,
-                "https://docs.example.com/random",
-                mock_llm
+                ambiguous_page_html, "https://docs.example.com/random", mock_llm
             )
 
             assert result == "unknown"
@@ -459,11 +428,9 @@ class TestClassifyPageTypeLLMFallback:
         # Test _classify_with_llm directly to test error handling
         mock_llm = MockLLM()
 
-        with patch.object(type(mock_llm), 'complete', side_effect=Exception("LLM error")):
+        with patch.object(type(mock_llm), "complete", side_effect=Exception("LLM error")):
             result = _classify_with_llm(
-                ambiguous_page_html,
-                "https://docs.example.com/random",
-                mock_llm
+                ambiguous_page_html, "https://docs.example.com/random", mock_llm
             )
 
             assert result == "unknown"
@@ -473,15 +440,13 @@ class TestClassifyPageTypeLLMFallback:
 # Test extract_page_metadata
 # ============================================================================
 
+
 class TestExtractPageMetadata:
     """Tests for page metadata extraction"""
 
     def test_extracts_title_from_title_tag(self, authentication_page_html):
         """Test extracts title from <title> tag"""
-        metadata = extract_page_metadata(
-            authentication_page_html,
-            "https://docs.example.com/auth"
-        )
+        metadata = extract_page_metadata(authentication_page_html, "https://docs.example.com/auth")
 
         assert metadata["title"] == "Authentication Guide"
 
@@ -501,10 +466,7 @@ class TestExtractPageMetadata:
 
     def test_extracts_description_from_meta_tag(self, authentication_page_html):
         """Test extracts description from meta description tag"""
-        metadata = extract_page_metadata(
-            authentication_page_html,
-            "https://docs.example.com/auth"
-        )
+        metadata = extract_page_metadata(authentication_page_html, "https://docs.example.com/auth")
 
         assert metadata["description"] == "Learn how to authenticate with our API"
 
@@ -541,10 +503,7 @@ class TestExtractPageMetadata:
 
     def test_extracts_headings_as_string(self, authentication_page_html):
         """Test extracts headings as newline-separated string for Chroma compatibility"""
-        metadata = extract_page_metadata(
-            authentication_page_html,
-            "https://docs.example.com/auth"
-        )
+        metadata = extract_page_metadata(authentication_page_html, "https://docs.example.com/auth")
 
         # Should be a string, not a list
         assert isinstance(metadata["headings"], str)
@@ -572,18 +531,14 @@ class TestExtractPageMetadata:
 
     def test_extracts_page_type(self, authentication_page_html):
         """Test extracts page type classification"""
-        metadata = extract_page_metadata(
-            authentication_page_html,
-            "https://docs.example.com/auth"
-        )
+        metadata = extract_page_metadata(authentication_page_html, "https://docs.example.com/auth")
 
         assert metadata["page_type"] == "authentication"
 
     def test_counts_code_blocks(self, api_reference_page_html):
         """Test counts code blocks in page"""
         metadata = extract_page_metadata(
-            api_reference_page_html,
-            "https://docs.example.com/api/users"
+            api_reference_page_html, "https://docs.example.com/api/users"
         )
 
         assert metadata["code_block_count"] >= 1
@@ -591,8 +546,7 @@ class TestExtractPageMetadata:
     def test_extracts_http_methods(self, api_reference_page_html):
         """Test extracts HTTP methods mentioned in page"""
         metadata = extract_page_metadata(
-            api_reference_page_html,
-            "https://docs.example.com/api/users"
+            api_reference_page_html, "https://docs.example.com/api/users"
         )
 
         assert "POST" in metadata["http_methods"]
@@ -600,8 +554,7 @@ class TestExtractPageMetadata:
     def test_extracts_breadcrumbs(self, page_with_breadcrumbs):
         """Test extracts breadcrumb navigation"""
         metadata = extract_page_metadata(
-            page_with_breadcrumbs,
-            "https://docs.example.com/docs/api/endpoint"
+            page_with_breadcrumbs, "https://docs.example.com/docs/api/endpoint"
         )
 
         assert "breadcrumbs" in metadata
@@ -611,10 +564,7 @@ class TestExtractPageMetadata:
 
     def test_extracts_endpoints(self, page_with_endpoints):
         """Test extracts API endpoints from page"""
-        metadata = extract_page_metadata(
-            page_with_endpoints,
-            "https://docs.example.com/api/users"
-        )
+        metadata = extract_page_metadata(page_with_endpoints, "https://docs.example.com/api/users")
 
         assert "endpoints" in metadata
         assert "GET /api/users" in metadata["endpoints"]
@@ -652,6 +602,7 @@ class TestExtractPageMetadata:
 # Test Helper Functions
 # ============================================================================
 
+
 class TestHelperFunctions:
     """Tests for helper functions"""
 
@@ -669,10 +620,17 @@ class TestHelperFunctions:
         text = "authentication api key bearer token"
 
         # Should pass with threshold=2 (has 3 keywords)
-        assert _contains_keywords(text, ["authentication", "api key", "bearer"], threshold=2) is True
+        assert (
+            _contains_keywords(text, ["authentication", "api key", "bearer"], threshold=2) is True
+        )
 
         # Should fail with threshold=5 (only has 3 keywords)
-        assert _contains_keywords(text, ["authentication", "api key", "bearer", "oauth", "jwt"], threshold=5) is False
+        assert (
+            _contains_keywords(
+                text, ["authentication", "api key", "bearer", "oauth", "jwt"], threshold=5
+            )
+            is False
+        )
 
     def test_extract_breadcrumbs_from_various_patterns(self):
         """Test _extract_breadcrumbs handles various HTML patterns"""
@@ -753,15 +711,24 @@ class TestHelperFunctions:
 # Test Edge Cases
 # ============================================================================
 
+
 class TestEdgeCases:
     """Tests for edge cases and error handling"""
 
     def test_valid_page_types_constant(self):
         """Test VALID_PAGE_TYPES contains expected types"""
         expected_types = [
-            "api_reference", "guide", "tutorial", "overview",
-            "authentication", "quickstart", "sdk", "webhook",
-            "error", "changelog", "unknown"
+            "api_reference",
+            "guide",
+            "tutorial",
+            "overview",
+            "authentication",
+            "quickstart",
+            "sdk",
+            "webhook",
+            "error",
+            "changelog",
+            "unknown",
         ]
 
         for expected in expected_types:
@@ -792,4 +759,3 @@ class TestEdgeCases:
 
         assert "认证指南" in metadata["title"]
         assert "Authentication 認証" in metadata["headings"]
-

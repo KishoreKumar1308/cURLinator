@@ -11,7 +11,7 @@ from curlinator.config import get_settings
 class HTTPClient:
     """
     HTTP client for making requests to APIs and documentation sites.
-    
+
     Features:
     - Async support
     - Automatic retries on failures
@@ -27,7 +27,7 @@ class HTTPClient:
     ) -> None:
         """
         Initialize HTTP client.
-        
+
         Args:
             timeout: Request timeout in seconds (default from settings)
             max_retries: Maximum number of retry attempts
@@ -50,16 +50,16 @@ class HTTPClient:
     ) -> httpx.Response:
         """
         Make a GET request.
-        
+
         Args:
             url: URL to request
             headers: Additional headers to include
             params: Query parameters
             follow_redirects: Whether to follow redirects
-            
+
         Returns:
             httpx.Response object
-            
+
         Raises:
             httpx.HTTPError: On request failure
         """
@@ -89,12 +89,12 @@ class HTTPClient:
     ) -> bool:
         """
         Check if a URL exists using HEAD request.
-        
+
         Args:
             url: URL to check
             headers: Additional headers
             follow_redirects: Whether to follow redirects
-            
+
         Returns:
             True if URL exists (2xx status), False otherwise
         """
@@ -119,16 +119,16 @@ class HTTPClient:
     ) -> httpx.Response:
         """
         Make a POST request.
-        
+
         Args:
             url: URL to request
             data: Form data to send
             json: JSON data to send
             headers: Additional headers
-            
+
         Returns:
             httpx.Response object
-            
+
         Raises:
             httpx.HTTPError: On request failure
         """
@@ -151,14 +151,14 @@ class HTTPClient:
     ) -> str:
         """
         Fetch URL and return text content.
-        
+
         Args:
             url: URL to fetch
             headers: Additional headers
-            
+
         Returns:
             Response text content
-            
+
         Raises:
             httpx.HTTPError: On request failure
         """
@@ -172,16 +172,16 @@ class HTTPClient:
     ) -> dict[str, Any]:
         """
         Fetch URL and parse JSON response.
-        
+
         Useful for fetching OpenAPI/Swagger specifications.
-        
+
         Args:
             url: URL to fetch
             headers: Additional headers
-            
+
         Returns:
             Parsed JSON as dictionary
-            
+
         Raises:
             httpx.HTTPError: On request failure
             ValueError: If response is not valid JSON
@@ -197,12 +197,12 @@ class HTTPClient:
     ) -> None:
         """
         Download a file from URL to local path.
-        
+
         Args:
             url: URL to download from
             file_path: Local path to save file
             headers: Additional headers
-            
+
         Raises:
             httpx.HTTPError: On request failure
             IOError: On file write failure
@@ -219,11 +219,11 @@ class HTTPClient:
     ) -> str | None:
         """
         Get the content type of a URL without downloading the full content.
-        
+
         Args:
             url: URL to check
             headers: Additional headers
-            
+
         Returns:
             Content-Type header value or None
         """
@@ -239,10 +239,10 @@ class HTTPClient:
     async def is_reachable(self, url: str) -> bool:
         """
         Check if a URL is reachable.
-        
+
         Args:
             url: URL to check
-            
+
         Returns:
             True if URL is reachable, False otherwise
         """
@@ -252,4 +252,3 @@ class HTTPClient:
         """Close the HTTP client and cleanup resources."""
         # httpx.AsyncClient handles cleanup automatically with context managers
         pass
-
