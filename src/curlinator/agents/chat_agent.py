@@ -398,11 +398,16 @@ Now, answer the user's question using the provided API documentation."""
         try:
             self._log(f"Adding {len(new_documents)} new documents to index...")
 
-            # Add documents to index (auto-persisted by Chroma)
-            for doc in new_documents:
-                self.index.insert(doc)
+            # Parse documents into nodes first (chunking)
+            parser = SentenceSplitter()
+            nodes = parser.get_nodes_from_documents(new_documents, show_progress=self.verbose)
+            self._log(f"Created {len(nodes)} nodes from {len(new_documents)} documents")
 
-            self._log(f"✅ Added {len(new_documents)} documents")
+            # Insert all nodes at once (batched embedding)
+            # This is much faster than individual insert() calls
+            self.index.insert_nodes(nodes, show_progress=self.verbose)
+
+            self._log(f"✅ Added {len(new_documents)} documents ({len(nodes)} nodes)")
 
             # Recreate chat engine to include new documents in BM25
             self._create_chat_engine()
